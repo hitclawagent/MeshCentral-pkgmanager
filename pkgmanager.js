@@ -1,6 +1,10 @@
 /**
  * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
  *
+ *     v2.1.8 RESTART BUTTON: admin-only "Riavvia server" button in the
+ *     plugin view (serverrestart serveraction) — schedules a clean
+ *     launcher-channel restart in 2s.
+ *
  *     v2.1.7 AUTO-RESTART EVERYWHERE: the v2.1.6 check shipped inside the
  *     NEW code, but after a screen-install the OLD cached module keeps
  *     running and never saw it. Now: 60s poll (guarded, unref'd) notices a
@@ -369,7 +373,7 @@ module.exports.pkgmanager = function (parent) {
     var childProcess = null; try { childProcess = require('child_process'); } catch (e) { }
     var vmMod = null; try { vmMod = require('vm'); } catch (e) { }
     var obj = {};
-    obj.version = '2.1.7';
+    obj.version = '2.1.8';
         globalThis.__pkgmanagerActiveVersion = obj.version; // v2.1.7: versione ATTIVA (il vecchio modulo in cache dopo un install resta a ZONA, il reloadplugin la aggiorna)
     obj.fs = parent.fs;
     obj.path = parent.path;
@@ -451,7 +455,7 @@ module.exports.pkgmanager = function (parent) {
     setTimeout(function () { try { obj.ensureBinaries(); } catch (e) { console.log('pkgmanager[server]: ensureBinaries errore: ' + e); } }, 15000);
 
     // ---- Client-side (stringified into the browser) ----
-    obj.exports = ['onWebUIStartupEnd', 'pkgSidebarInject', 'pkgRequestList', 'pkgList', 'pkgCompose', 'pkgTableHtml', 'pkgTargetOs', 'pkgDevToggle', 'pkgDevSelectAll', 'pkgDevOsFilter', 'pkgDevListRender', 'pkgSelectedNodes', 'pkgSidebarOpen', 'pkgSidebarRenderDevices', 'pkgSidebarRender', 'pkgPkgToggle', 'pkgPkgSelectAll', 'pkgPkgSummary', 'pkgBatchRun', 'pkgOsScan', 'pkgOsImportManifest', 'pkgOsExportDownloader', 'pkgOsExportGo', 'pkgDownloaderReady', 'pkgOsScanPoll', 'pkgOsScanParse', 'pkgOsScanRender', 'pkgOsScanExport', 'pkgOsSidebarOpen', 'pkgOsRender', 'pkgOsTable', 'pkgOsKind', 'pkgOsAdminOpen', 'pkgIsOsView', 'pkgInstall', 'pkgRunOn', 'goPageStart', 'pkgMsg', 'pkgTabSetActive', 'pkgAdminOpen', 'pkgAdminRender', 'pkgCreateOpen', 'pkgCreateRender', 'pkgCreateCurOs', 'pkgCreateDefaultType', 'pkgCreateFieldSync', 'pkgCreateDraftSync', 'pkgCreateOsChange', 'pkgCreateOsHint', 'pkgCreateUpload', 'pkgCreateArtifactDel', 'pkgCreatePreset', 'pkgCreateInsert', 'pkgCreateSave', 'pkgCreateCheckId', 'pkgCreateCatalogArrived', 'pkgAdminAdd', 'pkgAdminEdit', 'pkgAdminForm', 'pkgAdminCurOs', 'pkgAdminFieldSync', 'pkgAdminDraftSync', 'pkgAdminOsChange', 'pkgAdminOsHint', 'pkgAdminSave', 'pkgAdminDelete', 'pkgAdminUpload', 'pkgAdminUploadDo', 'pkgAdminArtifactDel', 'pkgAdminStatus', 'pkgAdminRefresh', 'pkgAdminOsFilter', 'pkgBinBanner', 'pkgOsPluginOpen', 'pkgOsPluginRender', 'pkgUpdateOnline', 'pkgUpdateFile', 'pkgUpdateUpload', 'pkgUpdateInfo', 'pkgUpdateApplied', 'pkgDenied', 'pkgD2WrapOnMessage', 'pkgD2Pending', 'pkgD2Receive', 'pkgD2PollSummary', 'pkgOsPlan', 'pkgOsPlanRender', 'pkgOsPlanSelChange', 'pkgOsPlanRequest', 'pkgOsPlanDownload', 'pkgOsPlanInstall', 'pkgOsPlanMachToggle', 'pkgOsPlanMachSelAll', 'pkgOsStoreRequest', 'pkgOsStoreList', 'pkgOsStoreSelChange', 'pkgOsStoreDel'];
+    obj.exports = ['onWebUIStartupEnd', 'pkgSidebarInject', 'pkgRequestList', 'pkgList', 'pkgCompose', 'pkgTableHtml', 'pkgTargetOs', 'pkgDevToggle', 'pkgDevSelectAll', 'pkgDevOsFilter', 'pkgDevListRender', 'pkgSelectedNodes', 'pkgSidebarOpen', 'pkgSidebarRenderDevices', 'pkgSidebarRender', 'pkgPkgToggle', 'pkgPkgSelectAll', 'pkgPkgSummary', 'pkgBatchRun', 'pkgOsScan', 'pkgOsImportManifest', 'pkgOsExportDownloader', 'pkgOsExportGo', 'pkgDownloaderReady', 'pkgOsScanPoll', 'pkgOsScanParse', 'pkgOsScanRender', 'pkgOsScanExport', 'pkgOsSidebarOpen', 'pkgOsRender', 'pkgOsTable', 'pkgOsKind', 'pkgOsAdminOpen', 'pkgIsOsView', 'pkgInstall', 'pkgRunOn', 'goPageStart', 'pkgMsg', 'pkgTabSetActive', 'pkgAdminOpen', 'pkgAdminRender', 'pkgCreateOpen', 'pkgCreateRender', 'pkgCreateCurOs', 'pkgCreateDefaultType', 'pkgCreateFieldSync', 'pkgCreateDraftSync', 'pkgCreateOsChange', 'pkgCreateOsHint', 'pkgCreateUpload', 'pkgCreateArtifactDel', 'pkgCreatePreset', 'pkgCreateInsert', 'pkgCreateSave', 'pkgCreateCheckId', 'pkgCreateCatalogArrived', 'pkgAdminAdd', 'pkgAdminEdit', 'pkgAdminForm', 'pkgAdminCurOs', 'pkgAdminFieldSync', 'pkgAdminDraftSync', 'pkgAdminOsChange', 'pkgAdminOsHint', 'pkgAdminSave', 'pkgAdminDelete', 'pkgAdminUpload', 'pkgAdminUploadDo', 'pkgAdminArtifactDel', 'pkgAdminStatus', 'pkgAdminRefresh', 'pkgAdminOsFilter', 'pkgBinBanner', 'pkgOsPluginOpen', 'pkgOsPluginRender', 'pkgUpdateOnline', 'pkgUpdateFile', 'pkgRestartNow', 'pkgUpdateUpload', 'pkgUpdateInfo', 'pkgUpdateApplied', 'pkgDenied', 'pkgD2WrapOnMessage', 'pkgD2Pending', 'pkgD2Receive', 'pkgD2PollSummary', 'pkgOsPlan', 'pkgOsPlanRender', 'pkgOsPlanSelChange', 'pkgOsPlanRequest', 'pkgOsPlanDownload', 'pkgOsPlanInstall', 'pkgOsPlanMachToggle', 'pkgOsPlanMachSelAll', 'pkgOsStoreRequest', 'pkgOsStoreList', 'pkgOsStoreSelChange', 'pkgOsStoreDel'];
 
     obj.onWebUIStartupEnd = function () {
         try {
@@ -793,7 +797,7 @@ module.exports.pkgmanager = function (parent) {
             var x = '<div style="margin-bottom:8px;font-size:16px"><b>Aggiorna plugin</b></div>' + pluginHandler.pkgmanager.pkgBinBanner();
             x += '<div style="margin-bottom:10px">Versione corrente del plugin: <b style="font-size:15px">v' + EscapeHtml((ver != null) ? ver : '?') + '</b>' + ((ver == null) ? ' <span style="color:#888">(si aggiorna al primo caricamento del catalogo)</span>' : '') + '</div>';
             if (adm) {
-                x += '<div style="margin-bottom:10px"><input type=button value="Aggiorna plugin (online)" title="Il SERVER scarica la nuova versione del plugin dal sorgente configurato, la verifica (sha384) e la installa con backup: serve il riavvio di MeshCentral per attivarla" onclick="pluginHandler.pkgmanager.pkgUpdateOnline()"> <input type=button value="Aggiorna plugin (file)" title="VIA AIRGAP: carica il pkgmanager.js nuovo da un file locale; il server lo verifica (JavaScript valido, versione, sha384), fa il backup e lo installa — serve il riavvio di MeshCentral per attivarla" onclick="pluginHandler.pkgmanager.pkgUpdateFile()"></div>';
+                x += '<div style="margin-bottom:10px"><input type=button value="Aggiorna plugin (online)" title="Il SERVER scarica la nuova versione del plugin dal sorgente configurato, la verifica (sha384) e la installa con backup: serve il riavvio di MeshCentral per attivarla" onclick="pluginHandler.pkgmanager.pkgUpdateOnline()"> <input type=button value="Aggiorna plugin (file)" title="VIA AIRGAP: carica il pkgmanager.js nuovo da un file locale; il server lo verifica (JavaScript valido, versione, sha384), fa il backup e lo installa — serve il riavvio di MeshCentral per attivarla" onclick="pluginHandler.pkgmanager.pkgUpdateFile()"> <input type=button value="Riavvia server" title="Riavvia MeshCentral tramite il canale del launcher (riavvio pulito)" onclick="pluginHandler.pkgmanager.pkgRestartNow()"></div>';
             } else {
                 x += '<div style="color:#888">La gestione degli aggiornamenti del plugin è riservata agli amministratori completi del server.</div>';
             }
@@ -1841,6 +1845,13 @@ module.exports.pkgmanager = function (parent) {
 
     // Server-side rejection of management ops from non-admins.
     // v1.9.6: auto-aggiornamento del plugin (solo full admin)
+    obj.pkgRestartNow = function () {
+        try {
+            if (!window.confirm('Riavviare MeshCentral ora? Tutti gli utenti collegati verranno disconnessi e riconnessi al ritorno del server.')) { return; }
+            pluginHandler.pkgmanager.pkgMsg('Riavvio di MeshCentral richiesto…');
+            meshserver.send({ action: 'plugin', plugin: 'pkgmanager', pluginaction: 'serverrestart' });
+        } catch (e) { pluginHandler.pkgmanager.pkgMsg('Riavvio fallito: ' + e); }
+    };
     obj.pkgUpdateOnline = function () {
         try { pluginHandler.pkgmanager.pkgMsg('Controllo aggiornamento plugin dal sorgente remoto…'); meshserver.send({ action: 'plugin', plugin: 'pkgmanager', pluginaction: 'pluginupdate-check' }); } catch (e) { pluginHandler.pkgmanager.pkgMsg('Aggiornamento plugin fallito: ' + e); }
     };
@@ -3398,6 +3409,17 @@ log('prossimo passo: copia ' + OUT_DIR + '/ nello store del server (My Files -> 
         function deny() { try { session.send({ action: 'plugin', plugin: 'pkgmanager', method: 'pkgDenied', msg: 'Operazioni di gestione riservate agli amministratori del server.' }); } catch (e) { } }
 
         if (command.pluginaction == 'list') { obj.replyCatalog(session, null, null); return; }
+
+        // v2.1.8: RIAVVIO DEL SERVER dal pulsante del plugin (solo admin).
+        // Usa il canale del launcher: 'Server restart...' su stdout + exit(0)
+        // -> il launcher rilancia il figlio in 500ms (riavvio pulito).
+        if (command.pluginaction == 'serverrestart') {
+            if (!isAdmin) { deny(); return; }
+            console.log('pkgmanager[server]: server restart requested by ' + command.userid);
+            try { obj.replyCatalog(session, null, 'Riavvio di MeshCentral tra 2 secondi…'); } catch (e) { }
+            setTimeout(function () { console.log('Server restart...'); process.exit(0); }, 2000);
+            return;
+        }
 
         // v1.9.6: AUTO-AGGIORNAMENTO DEL PLUGIN — online e airgap
         if (command.pluginaction == 'pluginupdate-check') {

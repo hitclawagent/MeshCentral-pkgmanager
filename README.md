@@ -2,8 +2,10 @@
 
 A [MeshCentral](https://github.com/Ylianst/MeshCentral) plugin for **remote package installation** on Windows, Linux and macOS agents. Catalog-driven, with **airgap installs** (devices never touch the internet: artifacts are downloaded from the MeshCentral server itself over the LAN).
 
-Current version: **2.1.7** — requires MeshCentral **1.3.1**
+Current version: **2.1.8** — requires MeshCentral **1.3.1**
 
+> **2.1.8**: "Riavvia server" button in the plugin admin view (admin-only server action via the launcher channel, clean restart in 2s) — handy for the one-time transition restart and as a test trigger.
+>
 > **2.1.7**: auto-restart everywhere — 60s poll inside the plugin (catches screen-installs where the old cached module keeps running, and the airgap file channel), self-update now aligns config.json and defaults to auto-restart ON (`pkgmanagerAutoRestart: false` to opt out), and every restart goes through the launcher channel (clean restart, no "unexpected exit").
 >
 > **2.1.6**: auto-restart — after installing/updating the plugin from the Plugins screen, the server restarts automatically (~2s later) so the new code is actually loaded. The restart uses the official launcher channel ("Server restart..." on stdout). Disable with `"autoRestartOnUpdate": false` in config.json.
