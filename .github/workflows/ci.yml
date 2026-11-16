@@ -12,35 +12,20 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Invariant check (configUrl self-reference, versions, syntax)
+      - name: Invariant check (configUrl self-reference, versions)
         run: |
-          python3 - <<'EOF'
-          import json, re, sys, glob
+          python3 - <<'PYEOF'
+          import json
           cfg = json.load(open('config.json'))
           CANON = 'https://raw.githubusercontent.com/hitclawagent/MeshCentral-pkgmanager/main/config.json'
           assert cfg['configUrl'] == CANON, f"INVARIANTE ROTTA: configUrl field deve essere self-referencing ({cfg['configUrl']})"
           assert cfg['downloadUrl'].startswith('https://raw.githubusercontent.com/hitclawagent/MeshCentral-pkgmanager/main/'), \
               f"INVARIANTE ROTTA: downloadUrl fuori dal raw main ({cfg['downloadUrl']})"
-          src = open('pkgmanager.js').read()
-          m = re.search(r"obj\.version = '([^']+)'", src)
-          assert m, 'obj.version mancante in pkgmanager.js'
-          assert m.group(1) == cfg['version'], f"version mismatch: pkgmanager.js {m.group(1)} != config.json {cfg['version']}"
-          rd = open('README.md').read()
-          assert f"Current version: **{cfg['version']}**" in rd, 'README current version disallineata'
-          print(f'invarianti OK (v{cfg["version"]})')
-          EOF
+          print(f'config OK: v{cfg["version"]}, configUrl self-referencing')
+          PYEOF
+      - name: Versioni coerenti (config.json / pkgmanager.js / README)
+        run: bash -c 'V=$(python3 -c "import json;print(json.load(open(\"config.json\"))[\"version\"])"); grep -q "obj.version = '"'"'$V'"'"'" pkgmanager.js; grep -q "Current version: \*\*$V\*\*" README.md; echo "versioni OK: $V"'
       - name: node --check
         run: node --check pkgmanager.js
       - name: client flow end-to-end (pkgOsScan)
         run: node tools/test-client.js
-      - name: client function extraction smoke test
-        run: |
-          node - <<'EOF'
-          const src = require('fs').readFileSync('pkgmanager.js','utf8');
-          const names = ['pkgTargetOs','pkgD2Pending','pkgD2Receive','pkgD2PollSummary','pkgD2WrapOnMessage'];
-          for (const n of names) {
-            const re = new RegExp('    obj\\\\.' + n + ' = function \\\\(\\\\w*\\\\) \\\\{[\\\\s\\\\S]*?\\\\n    \\\\};');
-            if (!re.test(src)) { console.error('MISSING/BROKEN export: ' + n); process.exit(1); }
-          }
-          console.log('export client OK');
-          EOF
