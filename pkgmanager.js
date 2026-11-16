@@ -1,6 +1,12 @@
 /**
  * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
  *
+ *     v2.0.4 CONFIG-URL INVARIANT GUARD: at startup the plugin force-aligns
+ *     its local config.json (and the DB record) to the canonical
+ *     self-referencing raw URLs and verifies the remote config.json too,
+ *     logging a loud error on any future bad release (a configUrl field
+ *     mismatch kills Node 24 on the official plugins screen).
+ *
  *     v2.0.3 UPDATE SOURCE REPOINT: updateSrcUrl (self-update check) and
  *     binariesUrl (downloader binaries auto-install) still pointed at the
  *     archived fork branch (v2.0.0) — the update check always reported the
@@ -252,7 +258,7 @@ module.exports.pkgmanager = function (parent) {
     var childProcess = null; try { childProcess = require('child_process'); } catch (e) { }
     var vmMod = null; try { vmMod = require('vm'); } catch (e) { }
     var obj = {};
-    obj.version = '2.0.3';
+    obj.version = '2.0.4';
     obj.fs = parent.fs;
     obj.path = parent.path;
     obj.catalogPath = parent.path.join(parent.parent.datapath, 'plugins', 'pkgmanager', 'catalog.json');
@@ -2348,6 +2354,57 @@ module.exports.pkgmanager = function (parent) {
     obj.server_startup = function () {
         try { parent.fs.mkdirSync(obj.storePath, { recursive: true }); } catch (e) { }
         obj.syncStoreLinks();
+        obj.pkgConfigInvariantCheck(); // v2.0.4
+    };
+
+    // v2.0.4: GUARDIA INVARIANTE configUrl (prevenzione crash-loop schermata
+    // Plugin). Il core (pluginHandler.getPluginLatest) MATCHA il campo
+    // configUrl DENTRO il config.json scaricato contro l'URL registrato del
+    // record plugin; se non coincidono fa reject() dentro un forEach (che non
+    // interrompe il loop) -> TypeError + unhandled rejection -> Node 24 ESCE.
+    // Difese:
+    //  1) forza i campi configUrl/downloadUrl del config.json LOCALE ai
+    //     valori canonici (il core copia il file locale nel record DB al load:
+    //     record sempre allineato al prossimo avvio; qui aggiorniamo anche il
+    //     record subito via db.updatePlugin, stessa chiamata del core);
+    //  2) verifica il config REMOTO: logga un ERRORE chiaro se il campo non
+    //     e' auto-riferente (release sbagliata -> da correggere sul repo).
+    obj.canonicalConfigUrl = 'https://raw.githubusercontent.com/hitclawagent/MeshCentral-pkgmanager/main/config.json';
+    obj.canonicalDownloadUrl = 'https://raw.githubusercontent.com/hitclawagent/MeshCentral-pkgmanager/main/pkgmanager-code-latest.zip';
+    obj.pkgLocalConfigPath = parent.path.join(parent.parent.datapath, 'plugins', 'pkgmanager', 'config.json');
+    obj.pkgConfigInvariantCheck = function () {
+        var local = null;
+        try { local = JSON.parse(parent.fs.readFileSync(obj.pkgLocalConfigPath)); } catch (e) { console.log('pkgmanager[server]: config invariant: config.json locale non leggibile: ' + e); return; }
+        try {
+            var changed = false;
+            if (local.configUrl !== obj.canonicalConfigUrl) { local.configUrl = obj.canonicalConfigUrl; changed = true; }
+            if (local.downloadUrl !== obj.canonicalDownloadUrl) { local.downloadUrl = obj.canonicalDownloadUrl; changed = true; }
+            if (changed) {
+                parent.fs.writeFileSync(obj.pkgLocalConfigPath, JSON.stringify(local, null, 2));
+                console.log('pkgmanager[server]: config invariant: config.json locale RIPUNTATO ai canonical URL (era disallineato).');
+                try {
+                    parent.parent.db.getPlugins(function (err, docs) {
+                        if ((err != null) || (docs == null)) { return; }
+                        for (var i in docs) {
+                            if (docs[i].shortName == 'pkgmanager') { try { parent.parent.db.updatePlugin(docs[i]._id, local); } catch (e2) { } break; }
+                        }
+                    });
+                } catch (e) { }
+            }
+        } catch (e) { console.log('pkgmanager[server]: config invariant (locale) failed: ' + e); }
+        // 2) verifica remota (best effort)
+        try {
+            fetch(obj.canonicalConfigUrl).then(function (r) { return r.text(); }).then(function (t) {
+                try {
+                    var rc = JSON.parse(t);
+                    if (rc.configUrl !== obj.canonicalConfigUrl) {
+                        console.log('pkgmanager[server]: ERRORE INVARIANTE config: il config.json REMOTO (' + obj.canonicalConfigUrl + ') dichiara configUrl="' + rc.configUrl + '" != URL servito — la schermata Plugin CRASHERA\' su MeshCentral ufficiale (correggere il campo nel repo, release nuova).');
+                    } else {
+                        console.log('pkgmanager[server]: config invariant OK (remoto auto-riferente, v' + rc.version + ').');
+                    }
+                } catch (e2) { console.log('pkgmanager[server]: config invariant: config remoto non JSON: ' + e2); }
+            }).catch(function (e3) { console.log('pkgmanager[server]: config invariant: verifica remota saltata (' + e3 + ')'); });
+        } catch (e) { }
     };
 
     // Route registration follows the core pattern (webserver.js setupHTTPHandlers:
