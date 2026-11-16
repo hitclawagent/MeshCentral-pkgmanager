@@ -12,19 +12,23 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Invariant check (configUrl self-reference, versions)
+      - name: Invariant check (configUrl self-referencing, versioni, sintassi)
         run: |
           python3 - <<'PYEOF'
-          import json
+          import json, re
           cfg = json.load(open('config.json'))
           CANON = 'https://raw.githubusercontent.com/hitclawagent/MeshCentral-pkgmanager/main/config.json'
           assert cfg['configUrl'] == CANON, f"INVARIANTE ROTTA: configUrl field deve essere self-referencing ({cfg['configUrl']})"
           assert cfg['downloadUrl'].startswith('https://raw.githubusercontent.com/hitclawagent/MeshCentral-pkgmanager/main/'), \
               f"INVARIANTE ROTTA: downloadUrl fuori dal raw main ({cfg['downloadUrl']})"
-          print(f'config OK: v{cfg["version"]}, configUrl self-referencing')
+          src = open('pkgmanager.js').read()
+          m = re.search(r"obj\.version = '([^']+)'", src)
+          assert m, 'obj.version mancante'
+          assert m.group(1) == cfg['version'], f"version mismatch: pkgmanager.js {m.group(1)} != config.json {cfg['version']}"
+          rd = open('README.md').read()
+          assert f"Current version: **{cfg['version']}**" in rd, 'README current version disallineata'
+          print(f'invarianti OK (v{cfg["version"]})')
           PYEOF
-      - name: Versioni coerenti (config.json / pkgmanager.js / README)
-        run: bash -c 'V=$(python3 -c "import json;print(json.load(open(\"config.json\"))[\"version\"])"); grep -q "obj.version = '"'"'$V'"'"'" pkgmanager.js; grep -q "Current version: \*\*$V\*\*" README.md; echo "versioni OK: $V"'
       - name: node --check
         run: node --check pkgmanager.js
       - name: client flow end-to-end (pkgOsScan)
