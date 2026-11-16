@@ -1,6 +1,12 @@
 /**
  * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
  *
+ *     v2.1.6 AUTO-RESTART: server_startup detects an on-disk config.json
+ *     version different from the running one (happens right after an
+ *     install/update, where require() returns the cached old module) and
+ *     schedules a graceful server restart via the launcher channel
+ *     ("Server restart..." on stdout). Opt-out: autoRestartOnUpdate:false.
+ *
  *     v2.1.5 STORE LIST RENDER FIX: pkgOsStoreList stored the array where
  *     the render expected { store: [...] } — the downloaded-packages
  *     section stayed empty on every render.
@@ -352,7 +358,7 @@ module.exports.pkgmanager = function (parent) {
     var childProcess = null; try { childProcess = require('child_process'); } catch (e) { }
     var vmMod = null; try { vmMod = require('vm'); } catch (e) { }
     var obj = {};
-    obj.version = '2.1.5';
+    obj.version = '2.1.6';
     obj.fs = parent.fs;
     obj.path = parent.path;
     obj.catalogPath = parent.path.join(parent.parent.datapath, 'plugins', 'pkgmanager', 'catalog.json');
@@ -2684,6 +2690,30 @@ module.exports.pkgmanager = function (parent) {
         try { parent.fs.mkdirSync(obj.storePath, { recursive: true }); } catch (e) { }
         obj.syncStoreLinks();
         obj.pkgConfigInvariantCheck(); // v2.0.4
+        obj.pkgAutoRestartCheck(); // v2.1.6
+    };
+
+    // v2.1.6: AUTO-RESTART dopo install/update del plugin. Dopo l'install il
+    // core fa require() del modulo, ma Node restituisce il modulo IN CACHE
+    // (codice vecchio) e chiama comunque server_startup(): se la versione nel
+    // config.json A DISCO e' diversa da quella in esecuzione, i file sono
+    // aggiornati ma non attivi -> riavvio graceful del server. Il launcher
+    // MeshCentral rileva la riga 'Server restart...' su stdout e rilancia il
+    // figlio in 500ms (stesso canale del comando console 'restartserver').
+    // Disattivabile con "autoRestartOnUpdate": false in config.json.
+    obj.pkgRestartScheduled = false;
+    obj.pkgAutoRestartCheck = function () {
+        try {
+            var disk = JSON.parse(parent.fs.readFileSync(obj.pkgLocalConfigPath));
+            var auto = (disk.autoRestartOnUpdate !== false);
+            if (auto && (typeof disk.version == 'string') && (disk.version !== obj.version) && !obj.pkgRestartScheduled) {
+                obj.pkgRestartScheduled = true;
+                console.log('pkgmanager[server]: versione ' + disk.version + ' installata su disco (in esecuzione ' + obj.version + '); riavvio del server tra 2 secondi per caricare il nuovo codice...');
+                setTimeout(function () { console.log('Server restart...'); process.exit(0); }, 2000);
+                return true;
+            }
+        } catch (e) { }
+        return false;
     };
 
     // v2.0.4: GUARDIA INVARIANTE configUrl (prevenzione crash-loop schermata

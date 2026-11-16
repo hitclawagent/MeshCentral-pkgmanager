@@ -37,3 +37,5 @@ jobs:
         run: node tools/test-osfetch.js
       - name: debian version comparator
         run: node tools/test-vercmp.js
+      - name: auto-restart hook
+        run: node tools/test-autorestart.js
