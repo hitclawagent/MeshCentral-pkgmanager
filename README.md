@@ -1,76 +1,76 @@
 # MeshCentral Package Manager (pkgmanager)
 
-Plugin per [MeshCentral](https://github.com/Ylianst/MeshCentral): **installazione remota di pacchetti** su agenti Windows, Linux e macOS, catalog-driven, con installazioni **airgap** (i dispositivi non toccano mai internet: scaricano gli artefatti dal server MeshCentral via LAN).
+A [MeshCentral](https://github.com/Ylianst/MeshCentral) plugin for **remote package installation** on Windows, Linux and macOS agents. Catalog-driven, with **airgap installs** (devices never touch the internet: artifacts are downloaded from the MeshCentral server itself over the LAN).
 
-Versione attuale: **2.0.0** — compatibilità: MeshCentral **1.3.1**
+Current version: **2.0.0** — requires MeshCentral **1.3.1**
 
-## Installazione dal Plugin Manager di MeshCentral
+## Install from the MeshCentral Plugin Manager
 
-**My Server → Plugins → Add/Install**, incolla questo URL (il formato è lo stesso dei plugin ufficiali: l'URL del `config.json`):
+**My Server → Plugins → Add/Install**, paste this URL (same format as the official plugins: the URL of the raw `config.json`):
 
 ```
 https://raw.githubusercontent.com/hitclawagent/MeshCentral-pkgmanager/main/config.json
 ```
 
-MeshCentral scarica il config, legge `downloadUrl` e installa il plugin (`pkgmanager.js`). Al termine riavvia il server (o attendi il prompt di riavvio).
+MeshCentral fetches the config, reads `downloadUrl` and installs the plugin (`pkgmanager.js`). Restart the server afterwards (or accept the restart prompt).
 
-> **⚠️ Server senza accesso a GitHub (airgap / firewall)**
-> Se il tuo server MeshCentral non riesce a raggiungere `raw.githubusercontent.com`, l'installazione fallisce con un errore sul config.json. In quel caso:
+> **⚠️ Servers without GitHub access (airgap / firewall)**
+> If your MeshCentral server cannot reach `raw.githubusercontent.com`, installation fails with an error about the config.json. In that case:
 >
 > ```bash
-> # Sulla macchina del server MeshCentral
+> # On the MeshCentral server machine
 > mkdir -p /tmp/pkginstall && cd /tmp/pkginstall
 > curl -sLO https://raw.githubusercontent.com/hitclawagent/MeshCentral-pkgmanager/main/config.json
 > curl -sLO https://raw.githubusercontent.com/hitclawagent/MeshCentral-pkgmanager/main/pkgmanager-code-latest.zip
 > python3 -m http.server 8077 &
 > ```
-> e incolla nel Plugin Manager: `http://127.0.0.1:8077/config.json`
+> then paste this into the Plugin Manager: `http://127.0.0.1:8077/config.json`
 >
-> Nota: anche il controllo aggiornamenti del Plugin Manager fa fetch del `configUrl` su GitHub, quindi su un server senza accesso outbound mostrerà errori: è atteso, non è un bug del plugin.
+> Note: the Plugin Manager update check also fetches the `configUrl` from GitHub, so on a server without outbound access it will report errors too — expected, not a plugin bug.
 
-## Installazione manuale (airgap totale)
+## Manual install (full airgap)
 
-Scarica `pkgmanager-code-latest.zip` (o l'asset della release), copialo sul server e:
+Download `pkgmanager-code-latest.zip` (or a release asset), copy it to the server, then:
 
-- estrai `pkgmanager.js` e `config.json` in `<meshcentral>/plugins/pkgmanager/`
-- riavvia MeshCentral
+- extract `pkgmanager.js` and `config.json` into `<meshcentral>/plugins/pkgmanager/`
+- restart MeshCentral
 
-## Cosa fa
+## What it does
 
-- **Catalogo pacchetti** gestito dagli admin (per-OS: Windows cmd / PowerShell, Linux/macOS shell) con comando di installazione **e disinstallazione obbligatori**, generati in automatico dai preset per `.deb`, `.rpm`, `.apk`, `.msi`, `.exe`, `.pkg`, `.app`, `.sh`
-- **Installa/Elimina pacchetti** con multi-selezione: checkbox sui target (con filtro OS), batch install/delete in un unico dialog risultati
-- **Airgap**: gli artefatti si caricano sul server (store lato server), il dispositivo scarica da **questo** server via LAN con verifica **SHA-384** prima dell'installazione (placeholder `{{url}}` / `{{sha384}}` nei comandi)
-- **Gestione aggiornamenti OS**: versioni per-OS + comandi di version-check, matrice "installate vs disponibili" e aggiornamento in un click dei pacchetti superati
-- **Creazione pacchetti**: wizard guidato con upload artefatti dal browser, controllo ID live, merge multi-OS
-- Le installazioni viaggiano sul canale `runcommands` con check dei diritti di MeshCentral: l'output torna nel dialog risultati standard
-- Il filtro artefatti live in My Files: il store è navigabile dalla cartella "Pacchetti (pkgmanager)" in My Files degli admin
+- **Package catalog** managed by admins (per-OS: Windows cmd / PowerShell, Linux/macOS shell) with mandatory install **and uninstall** commands, auto-generated from presets for `.deb`, `.rpm`, `.apk`, `.msi`, `.exe`, `.pkg`, `.app`, `.sh`
+- **Install/Delete packages** with multi-select: target checkboxes (with OS filter), batch install/delete in a single results dialog
+- **Airgap**: artifacts are uploaded to the server (server-side store); devices download from **this** server over the LAN and verify **SHA-384** before installing (`{{url}}` / `{{sha384}}` placeholders in commands)
+- **OS update management**: per-OS versions + version-check commands, an "installed vs available" matrix, and one-click update of outdated packages
+- **Package builder**: guided wizard with browser artifact upload, live ID check, multi-OS merge
+- Installs ride MeshCentral's rights-checked `runcommands` channel: output returns in the standard results dialog
+- The artifact store is browsable from the "Pacchetti (pkgmanager)" folder in My Files for admins
 
 ## Menu
 
-Il plugin aggiunge tre voci alla barra grigia superiore (stile tab core):
+The plugin adds three tabs to the top gray bar (core-style):
 
-- **Installazione pacchetti** — tutti gli utenti
-- **Gestione pacchetti** — solo full site admin
-- **Creazione pacchetti** — solo full site admin
-- e un **tab "Aggiorna plugin"** con i pulsanti di aggiornamento e la versione corrente
+- **Installazione pacchetti** — all users
+- **Gestione pacchetti** — full site admins only
+- **Creazione pacchetti** — full site admins only
+- plus an **"Aggiorna plugin"** tab with the update buttons and the current version
 
-## Struttura repo
+## Repository layout
 
 ```
-pkgmanager.js              # codice completo del plugin (server + client)
-config.json                # manifest plugin (configUrl/downloadUrl per il Plugin Manager)
-pkgmanager-code-latest.zip # pacchetto d'installazione (js + config), filename stabile
-tools/meshos-downloader/   # sorgente Go del downloader per-OS
-tools/meshos-fetch.js      # fetch/verify lato server degli artefatti
+pkgmanager.js              # full plugin code (server + client)
+config.json                # plugin manifest (configUrl/downloadUrl for the Plugin Manager)
+pkgmanager-code-latest.zip # install package (js + config), stable filename
+tools/meshos-downloader/   # Go source of the per-OS downloader
+tools/meshos-fetch.js      # server-side artifact fetch/verify
 ```
 
-## Release
+## Releases
 
-Gli asset versionati sono nelle [Release](https://github.com/hitclawagent/MeshCentral-pkgmanager/releases):
+Versioned assets are available in [Releases](https://github.com/hitclawagent/MeshCentral-pkgmanager/releases):
 
-- `pkgmanager-code-X.Y.Z.zip` — solo codice plugin (per il Plugin Manager)
-- `pkgmanager-full-X.Y.Z.zip` — plugin + binari downloader per-OS (airgap completo)
+- `pkgmanager-code-X.Y.Z.zip` — plugin code only (for the Plugin Manager)
+- `pkgmanager-full-X.Y.Z.zip` — plugin + per-OS downloader binaries (full airgap)
 
-## Licenza
+## License
 
-Uso interno/di laboratorio. Basato sull'API plugin di MeshCentral 1.3.1.
+Internal/lab use. Built on the MeshCentral 1.3.1 plugin API.
