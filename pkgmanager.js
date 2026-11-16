@@ -1,6 +1,12 @@
 /**
  * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
  *
+ *     v2.0.7 OS-BUNDLE REWORK: one bundle PER DISTRO RELEASE with
+ *     per-package max-version union (machines at different update levels
+ *     converge to the newest); single dpkg -i install; bundle contents
+ *     visible per OS (admin + OS view); catalog save mutex (concurrent
+ *     bundle saves no longer lose each other).
+ *
  *     v2.0.6 SCAN INFO FIXES: Windows version column shows the real
  *     release (registry DisplayVersion) instead of the Windows API version
  *     (10.0.x even on Windows 11); Linux os-release values are
@@ -268,7 +274,7 @@ module.exports.pkgmanager = function (parent) {
     var childProcess = null; try { childProcess = require('child_process'); } catch (e) { }
     var vmMod = null; try { vmMod = require('vm'); } catch (e) { }
     var obj = {};
-    obj.version = '2.0.6';
+    obj.version = '2.0.7';
     obj.fs = parent.fs;
     obj.path = parent.path;
     obj.catalogPath = parent.path.join(parent.parent.datapath, 'plugins', 'pkgmanager', 'catalog.json');
@@ -1129,6 +1135,14 @@ module.exports.pkgmanager = function (parent) {
                         art = ((def.artifactMissing === true)
                             ? '<span style="color:#a60">artefatto mancante: ' + EscapeHtml(def.artifact) + '</span>'
                             : '<span style="color:#080">artefatto ✓ ' + EscapeHtml(def.artifact) + '</span>');
+                    } else if (Array.isArray(def.artifacts) && (def.artifacts.length > 0)) {
+                        // v2.0.7: i bundle (artifacts[]) erano INVISIBILI ('—'):
+                        // ora mostrano il numero e l'ELENCO dei file per OS.
+                        var lstA = def.artifacts;
+                        var visA = lstA.slice(0, 12).map(function (s) { return EscapeHtml(String(s)); }).join(', ');
+                        art = ((def.artifactMissing === true) ? '<span style="color:#a60">bundle con file mancanti — </span>' : '<span style="color:#080">bundle ✓ </span>')
+                            + lstA.length + ' file: <div style="font-size:11px;color:#555;word-break:break-all;max-width:520px">' + visA
+                            + ((lstA.length > 12) ? ' … <i>+' + (lstA.length - 12) + ' altri (file store/' + EscapeHtml(String((p != null) ? p.id : '') ) + '/)</i>' : '') + '</div>';
                     }
                     defs += '<div style="padding:2px 0"><b>' + oses[k] + '</b>: tipo ' + EscapeHtml(String(def.type)) + ', ' + art + '</div>';
                 }
@@ -1990,17 +2004,17 @@ module.exports.pkgmanager = function (parent) {
         try {
             var run = window.pkgmanagerOsScan;
             if ((run == null) || (!run.done)) { pluginHandler.pkgmanager.pkgMsg('Nessuna scansione completata: prima fai «Scansiona macchine».'); return; }
-            var pid = prompt('ID del bundle OS da creare nello store (cartella plugins/pkgmanager/store/):', 'os-updates');
-            if ((pid == null) || (String(pid).trim() == '')) { pluginHandler.pkgmanager.pkgMsg('Download annullato.'); return; }
-            var nm = prompt('Nome del bundle (mostrato nelle liste):', 'Aggiornamenti OS (scansione)');
-            if ((nm == null) || (String(nm).trim() == '')) { nm = 'Aggiornamenti OS'; }
+            // v2.0.7: NIENTE prompt — il server crea automaticamente UN bundle
+            // PER CODENAME (release distro): id 'os-updates[-<codename>]',
+            // nome 'Aggiornamenti OS — <distro> <ver> (<codename>)'. Macchine
+            // identiche con livelli diversi -> sovrainsieme unico (max version).
             var machines = [];
             for (var nid in run.machs) {
                 var m = run.machs[nid];
                 machines.push({ id: nid, name: m.name, os: m.os, osInfo: { name: ((m.info != null) && (m.info.length > 0)) ? m.info[0] : '', version: ((m.info != null) && (m.info.length > 1)) ? m.info[1] : '', codename: ((m.info != null) && (m.info.length > 2)) ? m.info[2] : '' }, items: m.items.slice(0) });
             }
-            meshserver.send({ action: 'plugin', plugin: 'pkgmanager', pluginaction: 'osfetch', pkgid: String(pid).trim(), name: String(nm).trim(), machines: machines });
-            pluginHandler.pkgmanager.pkgMsg('Download server-side avviato: il server scarica i pacchetti mancanti (delta+dipendenze) dai repository vendor e crea il bundle da solo — attendi l esito qui.');
+            meshserver.send({ action: 'plugin', plugin: 'pkgmanager', pluginaction: 'osfetch', pkgid: 'os-updates', machines: machines });
+            pluginHandler.pkgmanager.pkgMsg('Download server-side avviato: il server scarica i mancanti (delta+dipendenze, versione massima per pacchetto) dai repo vendor e crea UN bundle PER RELEASE (es. os-updates-resolute) — attendi l esito qui.');
         } catch (e) { pluginHandler.pkgmanager.pkgMsg('Download fallito: ' + e); }
     };
 
@@ -2169,7 +2183,20 @@ module.exports.pkgmanager = function (parent) {
                         : '<input type=button value="Install" onclick="' + click + '(\'' + EscapeHtml(p.id) + '\')">');
                     btntd = '<td style="padding:4px">' + btn + '</td>';
                 }
-                x += '<tr style="border-bottom:1px solid #eee">' + cbtd + '<td style="padding:4px"><b>' + EscapeHtml(p.name) + '</b></td><td style="padding:4px">' + EscapeHtml(osl.join(', ')) + '</td><td style="padding:4px">' + EscapeHtml(p.description || '') + '</td>' + btntd + '</tr>';
+                // v2.0.7: i bundle OS (def.artifacts[]) mostrano il CONTENUTO
+                // per OS: numero + elenco file in un <details> espandibile.
+                var contents = '';
+                var oslB = ['linux', 'windows', 'macos'];
+                for (var cb = 0; cb < oslB.length; cb++) {
+                    var defB = p[oslB[cb]];
+                    if ((defB == null) || (Array.isArray(defB.artifacts) !== true) || (defB.artifacts.length == 0)) { continue; }
+                    var lstB = defB.artifacts;
+                    var visB = lstB.slice(0, 25).map(function (s) { return EscapeHtml(String(s)); }).join('<br>');
+                    contents += '<div style="margin-top:4px"><b>' + oslB[cb] + '</b>: ' + lstB.length + ' file <details style="display:inline-block"><summary style="cursor:pointer;color:#06c;font-size:11px">elenco</summary><div style="font-size:11px;color:#555;max-height:200px;overflow-y:auto;word-break:break-all;padding:4px;border:1px solid #ddd;border-radius:4px;margin-top:4px;max-width:420px">' + visB + ((lstB.length > 25) ? '<br>… <i>+' + (lstB.length - 25) + ' altri</i>' : '') + '</div></details></div>';
+                }
+                var descHtml = EscapeHtml(p.description || '');
+                if (contents != '') { descHtml += contents; }
+                x += '<tr style="border-bottom:1px solid #eee">' + cbtd + '<td style="padding:4px"><b>' + EscapeHtml(p.name) + '</b></td><td style="padding:4px">' + EscapeHtml(osl.join(', ')) + '</td><td style="padding:4px">' + descHtml + '</td>' + btntd + '</tr>';
             }
             x += '</table>';
             return x;
@@ -2320,6 +2347,15 @@ module.exports.pkgmanager = function (parent) {
     obj.dlToken = crypto.randomBytes(24).toString('hex');
     obj.storePath = parent.path.join(parent.parent.datapath, 'plugins', 'pkgmanager', 'store');
     obj.artifactCache = {}; // "<pkgid>/<file>" -> { sha384, mtime }
+    // v2.0.7: MUTEX per le scritture del catalogo. I bundle multipli creati
+    // in un solo osfetch fanno save CONCORRENTI: read-modify-write paralleli
+    // su catalog.json si perdono a vicenda (un bundle spariva). Catena di
+    // promise: ogni save/delete si accoda.
+    obj.catalogWriteChain = Promise.resolve();
+    obj.enqueueCatalogWrite = function (fn) {
+        obj.catalogWriteChain = obj.catalogWriteChain.then(fn, fn);
+        return obj.catalogWriteChain;
+    };
     obj.webRef = null;      // webserver module ref (session users), set by the hook
     try { parent.fs.mkdirSync(obj.storePath, { recursive: true }); } catch (e) { }
 
@@ -2998,13 +3034,23 @@ log('prossimo passo: copia ' + OUT_DIR + '/ nello store del server (My Files -> 
                         fidxCache[codename] = idx;
                         return idx;
                     };
-                    var fdone = {};
+                    // v2.0.7: UN BUNDLE PER CODENAME (release della distro) e
+                    // dedupe per NOME pacchetto tenendo la VERSIONE MASSIMA:
+                    // macchine identiche con livelli di update diversi ricevono
+                    // lo stesso sovrainsieme -> tutte convergono al piu' recente.
+                    // Prima: chiave nome_versione (stesso pacchetto in piu'
+                    // versioni) + ordine di installazione per SIZE (dpkg poteva
+                    // retrocedere una versione gia' installata = fallimento).
+                    var fdoneBy = {}; var fmetaBy = {};
                     for (var mi = 0; mi < fmachs.length; mi++) {
                         var mm = fmachs[mi];
                         var mos = String((mm != null) ? (mm.os || '') : '').toLowerCase();
                         if ((mos == 'windows') || (mos == 'macos') || (mos == 'darwin')) { fskipped.push({ machine: String((mm != null) ? (mm.name || '') : '?'), reason: ((mos == 'windows') ? 'windows: best effort — usa meshos-fetch --kb / WSUS (i KB mancanti non sono deducibili dalla sola scansione)' : 'macos: best effort — usa meshos-fetch --macos <versione> (combo Apple)') }); continue; }
-                        var codename = String(((mm != null) && (mm.osInfo != null) && (mm.osInfo.codename != null)) ? String(mm.osInfo.codename).trim() : '');
+                        var codename = String(((mm != null) && (mm.osInfo != null) && (mm.osInfo.codename != null)) ? String(mm.osInfo.codename).trim().replace(/"/g, '') : '');
                         if (codename == '') { fskipped.push({ machine: String((mm != null) ? (mm.name || '') : '?'), reason: 'codename assente nell inventario (scansione vecchia?)' }); continue; }
+                        if (fdoneBy[codename] == null) { fdoneBy[codename] = {}; }
+                        if (fmetaBy[codename] == null) { fmetaBy[codename] = { distro: String(((mm.osInfo != null) && (mm.osInfo.name != null)) ? mm.osInfo.name : 'Linux').replace(/"/g, ''), ver: String(((mm.osInfo != null) && (mm.osInfo.version != null)) ? mm.osInfo.version : '').replace(/"/g, ''), machs: {} }; }
+                        fmetaBy[codename].machs[String((mm != null) ? (mm.id || mm.name || '') : '')] = String((mm != null) ? (mm.name || '') : '?');
                         var installed = {};
                         var its = ((mm != null) && Array.isArray(mm.items)) ? mm.items : [];
                         for (var ii = 0; ii < its.length; ii++) { var sp = String(its[ii]).indexOf(' '); if (sp > 0) { installed[String(its[ii]).slice(0, sp)] = String(its[ii]).slice(sp + 1).trim(); } }
@@ -3037,38 +3083,60 @@ log('prossimo passo: copia ' + OUT_DIR + '/ nello store del server (My Files -> 
                             frontier = next;
                         }
                         console.log('pkgmanager[server]: osfetch ' + String(((mm != null) ? (mm.name || '') : '?')) + ': delta+dipendenze = ' + queue.length + ' pacchetti');
+                        var fdmap = fdoneBy[codename];
                         for (var qi = 0; qi < queue.length; qi++) {
                             var qe = queue[qi];
-                            var key2 = qe.name + '_' + qe.st.Version;
-                            if (fdone[key2] == null) { fdone[key2] = { package: qe.name, version: qe.st.Version, file: qe.name + '_' + qe.st.Version + '_' + (qe.st.Architecture || 'amd64') + '.deb', url: 'http://security.ubuntu.com/ubuntu/' + qe.st.Filename, origUrl: 'http://archive.ubuntu.com/ubuntu/' + qe.st.Filename, size: parseInt(qe.st.Size || '0', 10), sha384: null, targets: {} }; }
-                            fdone[key2].targets[String((mm != null) ? (mm.id || mm.name || '') : '')] = 1;
+                            var ex = fdmap[qe.name];
+                            if (ex == null) {
+                                fdmap[qe.name] = { package: qe.name, version: qe.st.Version, file: qe.name + '_' + qe.st.Version + '_' + (qe.st.Architecture || 'amd64') + '.deb', url: 'http://security.ubuntu.com/ubuntu/' + qe.st.Filename, origUrl: 'http://archive.ubuntu.com/ubuntu/' + qe.st.Filename, size: parseInt(qe.st.Size || '0', 10), sha384: null, targets: {} };
+                                ex = fdmap[qe.name];
+                            } else if (fverGe(qe.st.Version, ex.version)) {
+                                ex.version = qe.st.Version;
+                                ex.file = qe.name + '_' + qe.st.Version + '_' + (qe.st.Architecture || 'amd64') + '.deb';
+                                ex.url = 'http://security.ubuntu.com/ubuntu/' + qe.st.Filename;
+                                ex.origUrl = 'http://archive.ubuntu.com/ubuntu/' + qe.st.Filename;
+                                ex.size = parseInt(qe.st.Size || '0', 10);
+                            }
+                            ex.targets[String((mm != null) ? (mm.id || mm.name || '') : '')] = 1;
                         }
                     }
-                    var list = []; for (var lk in fdone) { list.push(fdone[lk]); }
-                    list.sort(function (a, b) { return (a.size || 0) - (b.size || 0); });
-                    var storeDir = parent.path.join(obj.storePath, fid);
-                    try { parent.fs.mkdirSync(storeDir, { recursive: true }); } catch (e) { }
-                    var files = [];
-                    for (var d = 0; d < list.length; d++) {
-                        var e = list[d];
-                        if ((fmax > 0) && (files.length >= fmax)) { fskipped.push({ file: e.file, reason: 'cap raggiunto (' + fmax + ' file — per il resto riesegui senza limite)' }); continue; }
-                        var buf = null;
-                        try { buf = await fget(e.origUrl); } catch (e1) { try { buf = await fget(e.url); } catch (e2) { } }
-                        if (buf == null) { fskipped.push({ file: e.file, reason: 'download fallito (' + e.origUrl + ')' }); continue; }
-                        parent.fs.writeFileSync(parent.path.join(storeDir, e.file), buf);
-                        e.sha384 = crypto.createHash('sha384').update(buf).digest('hex');
-                        e.size = buf.length;
-                        var tg = []; for (var t in e.targets) { tg.push(t); }
-                        files.push({ os: 'linux', package: e.package, version: e.version, file: e.file, sha384: e.sha384, size: buf.length, targets: tg });
-                        console.log('pkgmanager[server]: osfetch ok ' + e.file + ' (' + Math.round(buf.length / 1024) + 'KB)');
+                    var cnames = Object.keys(fdoneBy).sort();
+                    var summary = [];
+                    for (var ci = 0; ci < cnames.length; ci++) {
+                        var cn = cnames[ci];
+                        var fdmap2 = fdoneBy[cn];
+                        var list = []; for (var lk2 in fdmap2) { list.push(fdmap2[lk2]); }
+                        list.sort(function (a, b) { return (a.package < b.package ? -1 : (a.package > b.package ? 1 : 0)); });
+                        var bId = ((cnames.length == 1) ? fid : (fid + '-' + cn));
+                        var bName = 'Aggiornamenti OS — ' + fmetaBy[cn].distro + ' ' + fmetaBy[cn].ver + ' (' + cn + ')';
+                        var storeDir = parent.path.join(obj.storePath, bId);
+                        try { parent.fs.mkdirSync(storeDir, { recursive: true }); } catch (e) { }
+                        var files = [];
+                        for (var d = 0; d < list.length; d++) {
+                            var e = list[d];
+                            if ((fmax > 0) && (files.length >= fmax)) { fskipped.push({ file: e.file, reason: 'cap raggiunto (' + fmax + ' file — per il resto riesegui senza limite)' }); continue; }
+                            var buf = null;
+                            try { buf = await fget(e.origUrl); } catch (e1) { try { buf = await fget(e.url); } catch (e2) { } }
+                            if (buf == null) { fskipped.push({ file: e.file, reason: 'download fallito (' + e.origUrl + ')' }); continue; }
+                            parent.fs.writeFileSync(parent.path.join(storeDir, e.file), buf);
+                            e.sha384 = crypto.createHash('sha384').update(buf).digest('hex');
+                            e.size = buf.length;
+                            var tg = []; for (var t in e.targets) { tg.push(t); }
+                            files.push({ os: 'linux', package: e.package, version: e.version, file: e.file, sha384: e.sha384, size: buf.length, targets: tg });
+                            console.log('pkgmanager[server]: osfetch ok ' + bId + '/' + e.file + ' (' + Math.round(buf.length / 1024) + 'KB)');
+                        }
+                        if (files.length === 0) { summary.push(bId + ': nessun aggiornamento (macchine gia aggiornate?)'); continue; }
+                        console.log('pkgmanager[server]: osfetch -> import ' + bId + ' (' + files.length + ' file, ' + fskipped.length + ' saltati)');
+                        var machsIn = []; for (var mk in fmetaBy[cn].machs) { machsIn.push(fmetaBy[cn].machs[mk]); }
+                        obj.serveraction({ pluginaction: 'importmanifest', userid: command.userid, pkgid: bId, name: bName, manifest: { tool: 'pkgmanager-osfetch', version: '2.0', codename: cn, distro: fmetaBy[cn].distro, distroversion: fmetaBy[cn].ver, generated: new Date().toISOString(), files: files, skipped: fskipped, targets: machsIn } }, session, parent2);
+                        summary.push(bId + ' (' + files.length + ' file: ' + fmetaBy[cn].distro + ' ' + fmetaBy[cn].ver + ' ' + cn + ')');
                     }
-                    if (files.length === 0) {
+                    if (summary.length === 0) {
                         var reasons = fskipped.slice(0, 3).map(function (s) { return String((s.machine || s.file || '?') + ': ' + s.reason); }).join(' | ');
                         obj.replyCatalog(session, null, 'Nessun aggiornamento scaricato' + ((fskipped.length > 0) ? (' — ' + fskipped.length + ' saltati: ' + reasons) : ' (macchine gia aggiornate?)') + ' — se il server e airgap usa «Esporta downloader…» nella vista Aggiornamenti OS ed eseguilo su una macchina con internet.');
                         return;
                     }
-                    console.log('pkgmanager[server]: osfetch -> import ' + fid + ' (' + files.length + ' file, ' + fskipped.length + ' saltati)');
-                    obj.serveraction({ pluginaction: 'importmanifest', userid: command.userid, pkgid: fid, name: String(command.name || fid), manifest: { tool: 'pkgmanager-osfetch', version: '1.7', generated: new Date().toISOString(), files: files, skipped: fskipped } }, session, parent2);
+                    obj.replyCatalog(session, 'Bundle creati/aggiornati: ' + summary.join(' · ') + ((fskipped.length > 0) ? (' — ' + fskipped.length + ' saltati (dettaglio nella descrizione del bundle)') : '') + '. Il dettaglio dei file e\' nella definizione di ogni bundle (Gestione pacchetti).', null);
                 } catch (err) {
                     console.log('pkgmanager[server]: osfetch error: ' + err);
                     try { obj.replyCatalog(session, null, 'Download aggiornamenti fallito: ' + err + ' — se il server e airgap usa «Esporta downloader…» nella vista Aggiornamenti OS.'); } catch (e3) { }
@@ -3134,15 +3202,19 @@ log('prossimo passo: copia ' + OUT_DIR + '/ nello store del server (My Files -> 
                 var fl = byOs[osk];
                 if (fl.length === 0) continue;
                 var parts2 = [], insts2 = [];
+                    // v2.0.7: linux = UN SOLO dpkg/rpm/apk per TUTTI i file
+                    // (dpkg gestisce da solo l'ordine e i per-package; prima
+                    // erano uno-a-uno in catena ' && ' ordinati per SIZE).
+                    var debsA = [], rpmsA = [], apksA = [], othersA = [];
                 for (var fk = 0; fk < fl.length; fk++) {
                     var f2 = fl[fk]; var fn = String(f2.file);
                     var dd = fn.lastIndexOf('.'); var b2 = ((dd > 0) ? fn.slice(0, dd) : fn); var e2 = fn.slice(dd + 1).toLowerCase();
                     if (osk == 'linux') {
                         parts2.push("curl -kfsSL -o /tmp/" + fn + " '{{url:" + (fk + 1) + "}}' && echo '{{sha384:" + (fk + 1) + "}}  /tmp/" + fn + "' | sha384sum -c -");
-                        if (e2 == 'deb') { insts2.push('sudo -n dpkg -i /tmp/' + fn); }
-                        else if (e2 == 'rpm') { insts2.push('sudo -n rpm -Uvh --force /tmp/' + fn); }
-                        else if (e2 == 'apk') { insts2.push('sudo -n apk add --allow-untrusted /tmp/' + fn); }
-                        else { insts2.push('sh /tmp/' + fn); }
+                            if (e2 == 'deb') { debsA.push('/tmp/' + fn); }
+                            else if (e2 == 'rpm') { rpmsA.push('/tmp/' + fn); }
+                            else if (e2 == 'apk') { apksA.push('/tmp/' + fn); }
+                            else { othersA.push('/tmp/' + fn); }
                     } else if (osk == 'windows') {
                         var dst2 = '"%TEMP%\\' + fn + '"';
                         parts2.push('curl -kfsSL -o ' + dst2 + ' "{{url:' + (fk + 1) + '}}" && certutil -hashfile ' + dst2 + ' SHA384 | findstr /i "{{sha384:' + (fk + 1) + '}}"');
@@ -3156,6 +3228,12 @@ log('prossimo passo: copia ' + OUT_DIR + '/ nello store del server (My Files -> 
                         else if (e2 == 'app') { insts2.push('cp -R /tmp/' + fn + ' /Applications/'); }
                         else { insts2.push('sh /tmp/' + fn); }
                     }
+                }
+                if (osk == 'linux') {
+                    if (debsA.length > 0) { insts2.push('sudo -n dpkg -i ' + debsA.join(' ')); }
+                    if (rpmsA.length > 0) { insts2.push('sudo -n rpm -Uvh --force ' + rpmsA.join(' ')); }
+                    if (apksA.length > 0) { insts2.push('sudo -n apk add --allow-untrusted ' + apksA.join(' ')); }
+                    for (var oa = 0; oa < othersA.length; oa++) { insts2.push('sh ' + othersA[oa]); }
                 }
                 var cmd2 = parts2.join(' && ');
                 if (insts2.length > 0) { cmd2 += ' && ' + insts2.join(' && '); }
@@ -3184,6 +3262,7 @@ log('prossimo passo: copia ' + OUT_DIR + '/ nello store del server (My Files -> 
                 for (var k2 = 0; k2 < oses.length; k2++) {
                     if ((clean[oses[k2]] != null) && (clean[oses[k2]].uninstall == null) && (String(clean[oses[k2]].kind || '') != 'os')) { obj.replyCatalog(session, null, 'Comando di disinstallazione mancante per ' + oses[k2] + ' (è obbligatoria per le app; opzionale per i bundle aggiornamenti OS).'); return; }
                 }
+                obj.enqueueCatalogWrite(function () { return new Promise(function (resSave) { // v2.0.7 mutex catalogo
                 obj.fs.readFile(obj.catalogPath, function (err, data) {
                     var cat = null;
                     try { cat = JSON.parse(data); } catch (e) { }
@@ -3193,29 +3272,32 @@ log('prossimo passo: copia ' + OUT_DIR + '/ nello store del server (My Files -> 
                     for (var i = 0; i < cat.packages.length; i++) { if (cat.packages[i].id == clean.id) { idx = i; break; } }
                     if (idx >= 0) { cat.packages[idx] = clean; } else { cat.packages.push(clean); }
                     obj.fs.writeFile(obj.catalogPath, JSON.stringify(cat, null, 2), function (e2) {
-                        if (e2 != null) { obj.replyCatalog(session, null, 'Scrittura catalogo fallita: ' + e2); return; }
+                        if (e2 != null) { obj.replyCatalog(session, null, 'Scrittura catalogo fallita: ' + e2); resSave(); return; }
                         console.log('pkgmanager[server]: package saved: ' + clean.id);
                         obj.replyCatalog(session, 'Pacchetto salvato: ' + clean.id, null);
+                        resSave();
                     });
-                });
+                }); }); });
             } else {
                 var delId = String(command.id || '');
                 if (!/^[a-zA-Z0-9._-]+$/.test(delId)) { obj.replyCatalog(session, null, 'ID non valido.'); return; }
+                obj.enqueueCatalogWrite(function () { return new Promise(function (resDel) { // v2.0.7 mutex catalogo
                 obj.fs.readFile(obj.catalogPath, function (err, data) {
                     var cat = null;
                     try { cat = JSON.parse(data); } catch (e) { }
-                    if ((cat == null) || (cat.packages == null)) { obj.replyCatalog(session, null, 'Catalogo non leggibile.'); return; }
+                    if ((cat == null) || (cat.packages == null)) { obj.replyCatalog(session, null, 'Catalogo non leggibile.'); resDel(); return; }
                     var idx = -1;
                     for (var i = 0; i < cat.packages.length; i++) { if (cat.packages[i].id == delId) { idx = i; break; } }
-                    if (idx < 0) { obj.replyCatalog(session, null, 'Pacchetto inesistente: ' + delId); return; }
+                    if (idx < 0) { obj.replyCatalog(session, null, 'Pacchetto inesistente: ' + delId); resDel(); return; }
                     cat.packages.splice(idx, 1);
                     obj.fs.writeFile(obj.catalogPath, JSON.stringify(cat, null, 2), function (e2) {
-                        if (e2 != null) { obj.replyCatalog(session, null, 'Scrittura catalogo fallita: ' + e2); return; }
+                        if (e2 != null) { obj.replyCatalog(session, null, 'Scrittura catalogo fallita: ' + e2); resDel(); return; }
                         try { parent.fs.rmSync(parent.path.join(obj.storePath, delId), { recursive: true, force: true }); } catch (e3) { }
                         console.log('pkgmanager[server]: package deleted: ' + delId);
                         obj.replyCatalog(session, 'Pacchetto eliminato: ' + delId, null);
+                        resDel();
                     });
-                });
+                }); }); });
             }
             return;
         }
