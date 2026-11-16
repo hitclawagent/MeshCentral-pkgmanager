@@ -1,5 +1,10 @@
 /**
- * MeshCentral Package Manager plugin ("pkgmanager") — v1.6.1.
+ * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.1.
+ *
+ *     v2.0.1 OS CLASSIFICATION FIX: machines are now classified by AGENT TYPE
+ *     (node.agent.id — always present) before falling back to the os_title/os
+ *     text. Previously a Windows machine with a missing/empty os_title was
+ *     silently treated as Linux (the default), breaking inventory and installs.
  *
  * Design: the catalog lives server-side (catalog.json next to this file).
  * The plugin pages are TABS IN THE TOP GRAY BAR (their own
@@ -232,7 +237,7 @@ module.exports.pkgmanager = function (parent) {
     var childProcess = null; try { childProcess = require('child_process'); } catch (e) { }
     var vmMod = null; try { vmMod = require('vm'); } catch (e) { }
     var obj = {};
-    obj.version = '2.0.0';
+    obj.version = '2.0.1';
     obj.fs = parent.fs;
     obj.path = parent.path;
     obj.catalogPath = parent.path.join(parent.parent.datapath, 'plugins', 'pkgmanager', 'catalog.json');
@@ -1490,11 +1495,27 @@ module.exports.pkgmanager = function (parent) {
         } catch (e) { console.log('pkgmanager request failed: ' + e); }
     };
 
+    // v2.0.1: classificazione OS prima dal TIPO AGENTE (n.agent.id, sempre
+    // presente anche quando os_title/os sono vuoti o non ancora popolati),
+    // poi fallback sul testo os_title/os. Prima il default era 'linux', quindi
+    // una macchina Windows senza os_title veniva trattata come Linux.
+    // Tabella agenttypes di MeshCentral: win32 = 1,2,3,4,21,22,42,43,10003,10004,10043,11000,11001,11002 (+ assistant 34,10006);
+    // osx = 8,16,29,10005; tutto il resto = linux/freebsd/altro.
     obj.pkgTargetOs = function (n) {
+        // 1) segnale positivo dal testo (quando c'è, è quello più esplicito)
         var t = '';
         try { t = String(((n != null) && (n.os_title != null)) ? n.os_title : (((n != null) && (n.os != null)) ? n.os : '')); } catch (e) { }
         if (/win/i.test(t)) { return 'windows'; }
         if (/mac os x|darwin/i.test(t)) { return 'macos'; }
+        // 2) tipo agente (sempre presente, anche con os_title vuoto/non popolato)
+        try {
+            var aid = ((n != null) && (n.agent != null)) ? parseInt(n.agent.id) : NaN;
+            if (!isNaN(aid)) {
+                if ((aid == 1) || (aid == 2) || (aid == 3) || (aid == 4) || (aid == 21) || (aid == 22) || (aid == 42) || (aid == 43) || (aid == 34) || (aid == 10003) || (aid == 10004) || (aid == 10006) || (aid == 10043) || (aid == 11000) || (aid == 11001) || (aid == 11002)) { return 'windows'; }
+                if ((aid == 8) || (aid == 16) || (aid == 29) || (aid == 10005)) { return 'macos'; }
+                if (aid > 0) { return 'linux'; }
+            }
+        } catch (e) { }
         return 'linux';
     };
 

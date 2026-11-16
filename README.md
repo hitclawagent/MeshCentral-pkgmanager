@@ -2,7 +2,9 @@
 
 A [MeshCentral](https://github.com/Ylianst/MeshCentral) plugin for **remote package installation** on Windows, Linux and macOS agents. Catalog-driven, with **airgap installs** (devices never touch the internet: artifacts are downloaded from the MeshCentral server itself over the LAN).
 
-Current version: **2.0.0** — requires MeshCentral **1.3.1**
+Current version: **2.0.1** — requires MeshCentral **1.3.1**
+
+> **2.0.1**: OS classification fix — machines are classified by agent type (`node.agent.id`) before the `os_title` text fallback, so Windows machines without populated OS info are no longer mistaken for Linux.
 
 ## Install from the MeshCentral Plugin Manager
 
