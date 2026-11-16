@@ -1,6 +1,10 @@
 /**
  * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
  *
+ *     v2.1.5 STORE LIST RENDER FIX: pkgOsStoreList stored the array where
+ *     the render expected { store: [...] } — the downloaded-packages
+ *     section stayed empty on every render.
+ *
  *     v2.1.4 VERSION COMPARATOR: verDebCmp — full dpkg version algorithm
  *     (epoch, ~ ordering, digit runs) in pure JS; the OS plan no longer
  *     depends on the server having dpkg (string fallback compared
@@ -348,7 +352,7 @@ module.exports.pkgmanager = function (parent) {
     var childProcess = null; try { childProcess = require('child_process'); } catch (e) { }
     var vmMod = null; try { vmMod = require('vm'); } catch (e) { }
     var obj = {};
-    obj.version = '2.1.4';
+    obj.version = '2.1.5';
     obj.fs = parent.fs;
     obj.path = parent.path;
     obj.catalogPath = parent.path.join(parent.parent.datapath, 'plugins', 'pkgmanager', 'catalog.json');
@@ -810,7 +814,7 @@ module.exports.pkgmanager = function (parent) {
     };
     obj.pkgOsStoreList = function (server, message) {
         try {
-            if ((message != null) && (message.store != null)) { window.pkgmanagerOsStore = message.store; }
+            if ((message != null) && (message.store != null)) { window.pkgmanagerOsStore = { store: message.store }; } // v2.1.5: il render legge .store
             if (window.pkgmanagerView == 'osadmin') { pluginHandler.pkgmanager.pkgAdminRender(); }
         } catch (e) { console.log('pkgmanager osstorelist recv failed: ' + e); }
     };
