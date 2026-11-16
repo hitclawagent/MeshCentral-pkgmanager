@@ -78,12 +78,24 @@ gh release create "v${VER}" -R "${REPO}" --title "v${VER}" --notes "Release v${V
   "pkgmanager-code-${VER}.zip" pkgmanager-code-latest.zip "pkgmanager-full-${VER}.zip" config.json \
   || gh release upload "v${VER}" -R "${REPO}" "pkgmanager-code-${VER}.zip" pkgmanager-code-latest.zip "pkgmanager-full-${VER}.zip" config.json --clobber
 
-echo "== I4: attesa che raw serva la nuova versione (max 15 min) =="
+echo "== I4: attesa che raw serva la nuova versione, STABILE (max 15 min) =="
+# Fastly ha POP multipli: una singola risposta OK non basta (v2.1.7: un POP
+# serviva 2.1.7 e un altro ancora 2.1.6 -> l'utente non vedeva l'update).
+# Richiesti 3 OK consecutivi su config.json + versione coerente su pkgmanager.js.
+STREAK=0
 for i in $(seq 1 60); do
   SERVED=$(curl -sL "$RAW" | python3 -c "import json,sys; print(json.load(sys.stdin).get('version',''))" 2>/dev/null || true)
-  if [ "$SERVED" = "$VER" ]; then echo "raw OK: v${VER} dopo ${i}x15s"; exit 0; fi
-  echo "raw stale (serve: '${SERVED:-<niente>}'), riprovo tra 15s..."
+  JSVER=$(curl -sL "https://raw.githubusercontent.com/${REPO#github.com/}/main/pkgmanager.js" | grep -o "obj.version = '[0-9.]*'" | head -1 | grep -o "[0-9]\+\.[0-9]\+\.[0-9]\+" || true)
+  if [ "$SERVED" = "$VER" ] && [ "$JSVER" = "$VER" ]; then
+    STREAK=$((STREAK+1))
+    if [ "$STREAK" -ge 3 ]; then echo "raw OK stabile: v${VER} (3 OK consecutivi) dopo ${i}x15s"; exit 0; fi
+    echo "raw OK ${STREAK}/3 (controllo ${i})..."
+  else
+    if [ "$STREAK" -gt 0 ]; then echo "raw FLAKY: era OK, di nuovo stale (serve: '${SERVED:-?}' js:'${JSVER:-?}')"; fi
+    STREAK=0
+    echo "raw stale (serve: '${SERVED:-<niente>}' js: '${JSVER:-<niente>}'), riprovo tra 15s..."
+  fi
   sleep 15
 done
-echo "ATTENZIONE: raw NON serve ancora v${VER} (cache Fastly stale). NON dichiarare l'update disponibile all'utente finche' raw non si allinea."
+echo "ATTENZIONE: raw NON serve ancora v${VER} in modo stabile (cache Fastly). NON dichiarare l'update disponibile all'utente finche' raw non si allinea."
 exit 1
