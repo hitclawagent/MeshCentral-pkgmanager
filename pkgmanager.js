@@ -1,6 +1,11 @@
 /**
  * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
  *
+ *     v2.1.3 GHOST-PACKAGE FIX: Linux inventory = only actually-installed
+ *     packages (dpkg-query Status-Abbrev filtered to installed states) —
+ *     removed-but-not-purged ghosts no longer trigger phantom updates;
+ *     plan shows the scan timestamp (staleness hint after installs).
+ *
  *     v2.1.2 PLAN REASONS + BROKEN-STATE DETECTION: the OS-update plan shows
  *     WHY each package is there (update vs new dependency of an updated
  *     package — explains count differences vs apt upgrade); the Linux scan
@@ -298,7 +303,7 @@ module.exports.pkgmanager = function (parent) {
     var childProcess = null; try { childProcess = require('child_process'); } catch (e) { }
     var vmMod = null; try { vmMod = require('vm'); } catch (e) { }
     var obj = {};
-    obj.version = '2.1.2';
+    obj.version = '2.1.3';
     obj.fs = parent.fs;
     obj.path = parent.path;
     obj.catalogPath = parent.path.join(parent.parent.datapath, 'plugins', 'pkgmanager', 'catalog.json');
@@ -1966,13 +1971,14 @@ module.exports.pkgmanager = function (parent) {
             if ((window.pkgmanagerOsPlanSel == null) || (keys.indexOf(window.pkgmanagerOsPlanSel) < 0)) { window.pkgmanagerOsPlanSel = keys[0]; }
             var grp = plan.groups[window.pkgmanagerOsPlanSel];
             var x = '';
+            var scanTime = ((window.pkgmanagerOsScan != null) && (window.pkgmanagerOsScan.started != null)) ? new Date(window.pkgmanagerOsScan.started).toLocaleTimeString() : '?';
             x += '<div style="margin-bottom:8px">Sistema operativo: <select id="pkgmanagerOsPlanSel" onchange="pluginHandler.pkgmanager.pkgOsPlanSelChange()" style="padding:3px 6px">';
             for (var i = 0; i < keys.length; i++) {
                 var g = plan.groups[keys[i]];
                 var label = g.distro + ' ' + g.ver + ((g.codename != null) ? ' (' + g.codename + ')' : '') + ' — ' + Object.keys(g.machines).length + ' macchina/e';
                 x += '<option value="' + EscapeHtml(keys[i]) + '"' + (keys[i] == window.pkgmanagerOsPlanSel ? ' selected' : '') + '>' + EscapeHtml(label) + '</option>';
             }
-            x += '</select> <span style="color:#888;font-size:12px">' + ((grp.os == 'linux') ? (grp.updates.length + ' aggiornamenti nel piano — ' + grp.machNames.join(', ')) : 'mancanti non deducibili dalla scansione (best effort)') + '</span></div>';
+            x += '</select> <span style="color:#888;font-size:12px">' + ((grp.os == 'linux') ? (grp.updates.length + ' aggiornamenti nel piano — ' + grp.machNames.join(', ')) : 'mancanti non deducibili dalla scansione (best effort)') + '</span> <span style="color:#a60;font-size:12px">piano basato sulla scansione delle ' + EscapeHtml(scanTime) + ' — dopo un install o installazioni locali rilancia «Scansiona macchine».</span></div>';
             // v2.1.2: macchine con stato dpkg incoerente (dpkg --audit non vuoto)
             var broken = [];
             try {
@@ -2112,7 +2118,7 @@ module.exports.pkgmanager = function (parent) {
                     type = 3;
                     // v2.0.6: tr -d '"' — VERSION_ID su Ubuntu arriva QUOTATO
                     // ("26.04"); il codename finisce nell URL dei repo vendor.
-                    cmd = 'printf "__osinfo:%s|%s|%s\\n" "$(grep ^NAME= /etc/os-release | cut -d= -f2 | tr -d \'"\')" "$(grep ^VERSION_ID= /etc/os-release | cut -d= -f2 | tr -d \'"\')" "$(grep ^VERSION_CODENAME= /etc/os-release | cut -d= -f2 | tr -d \'"\')" ; dpkg-query -W -f=\'${Package} ${Version}\\n\' 2>/dev/null ; echo \'__audit:start\' ; dpkg --audit 2>/dev/null | sed -n \'1,50p\'';
+                    cmd = 'printf "__osinfo:%s|%s|%s\\n" "$(grep ^NAME= /etc/os-release | cut -d= -f2 | tr -d \'"\')" "$(grep ^VERSION_ID= /etc/os-release | cut -d= -f2 | tr -d \'"\')" "$(grep ^VERSION_CODENAME= /etc/os-release | cut -d= -f2 | tr -d \'"\')" ; dpkg-query -W -f=\'${db:Status-Abbrev} ${Package} ${Version}\\n\' 2>/dev/null | grep -E \'^.i \' | sed -E \'s/^... //\' ; echo \'__audit:start\' ; dpkg --audit 2>/dev/null | sed -n \'1,50p\'';
                 } else if (os2 == 'windows') {
                     type = 2;
                     // v2.0.6: la colonna Versione mostrava la versione API di
