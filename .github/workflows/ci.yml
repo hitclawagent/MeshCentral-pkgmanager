@@ -33,3 +33,5 @@ jobs:
         run: node --check pkgmanager.js
       - name: client flow end-to-end (pkgOsScan)
         run: node tools/test-client.js
+      - name: server flow end-to-end (osfetch bundles)
+        run: node tools/test-osfetch.js
