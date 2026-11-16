@@ -1,6 +1,10 @@
 /**
  * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
  *
+ *     v2.0.9 GROUP MACHINE SELECTION + EXPORT BUTTON: checkbox machine
+ *     picker per OS group (staged updates: install only the picked machines),
+ *     «Esporta downloader…» back in the OS view (airgap flow).
+ *
  *     v2.0.8 OS-VIEW REDESIGN: plan-driven OS-updates view — per-OS
  *     dropdown, package list with installed/candidate versions and server
  *     store status, download-missing-only (osfetch), direct install from
@@ -280,7 +284,7 @@ module.exports.pkgmanager = function (parent) {
     var childProcess = null; try { childProcess = require('child_process'); } catch (e) { }
     var vmMod = null; try { vmMod = require('vm'); } catch (e) { }
     var obj = {};
-    obj.version = '2.0.8';
+    obj.version = '2.0.9';
     obj.fs = parent.fs;
     obj.path = parent.path;
     obj.catalogPath = parent.path.join(parent.parent.datapath, 'plugins', 'pkgmanager', 'catalog.json');
@@ -361,7 +365,7 @@ module.exports.pkgmanager = function (parent) {
     setTimeout(function () { try { obj.ensureBinaries(); } catch (e) { console.log('pkgmanager[server]: ensureBinaries errore: ' + e); } }, 15000);
 
     // ---- Client-side (stringified into the browser) ----
-    obj.exports = ['onWebUIStartupEnd', 'pkgSidebarInject', 'pkgRequestList', 'pkgList', 'pkgCompose', 'pkgTableHtml', 'pkgTargetOs', 'pkgDevToggle', 'pkgDevSelectAll', 'pkgDevOsFilter', 'pkgDevListRender', 'pkgSelectedNodes', 'pkgSidebarOpen', 'pkgSidebarRenderDevices', 'pkgSidebarRender', 'pkgPkgToggle', 'pkgPkgSelectAll', 'pkgPkgSummary', 'pkgBatchRun', 'pkgOsScan', 'pkgOsImportManifest', 'pkgOsExportDownloader', 'pkgOsExportGo', 'pkgDownloaderReady', 'pkgOsScanPoll', 'pkgOsScanParse', 'pkgOsScanRender', 'pkgOsScanExport', 'pkgOsSidebarOpen', 'pkgOsRender', 'pkgOsTable', 'pkgOsKind', 'pkgOsAdminOpen', 'pkgIsOsView', 'pkgInstall', 'pkgRunOn', 'goPageStart', 'pkgMsg', 'pkgTabSetActive', 'pkgAdminOpen', 'pkgAdminRender', 'pkgCreateOpen', 'pkgCreateRender', 'pkgCreateCurOs', 'pkgCreateDefaultType', 'pkgCreateFieldSync', 'pkgCreateDraftSync', 'pkgCreateOsChange', 'pkgCreateOsHint', 'pkgCreateUpload', 'pkgCreateArtifactDel', 'pkgCreatePreset', 'pkgCreateInsert', 'pkgCreateSave', 'pkgCreateCheckId', 'pkgCreateCatalogArrived', 'pkgAdminAdd', 'pkgAdminEdit', 'pkgAdminForm', 'pkgAdminCurOs', 'pkgAdminFieldSync', 'pkgAdminDraftSync', 'pkgAdminOsChange', 'pkgAdminOsHint', 'pkgAdminSave', 'pkgAdminDelete', 'pkgAdminUpload', 'pkgAdminUploadDo', 'pkgAdminArtifactDel', 'pkgAdminStatus', 'pkgAdminRefresh', 'pkgAdminOsFilter', 'pkgBinBanner', 'pkgOsPluginOpen', 'pkgOsPluginRender', 'pkgUpdateOnline', 'pkgUpdateFile', 'pkgUpdateUpload', 'pkgUpdateInfo', 'pkgUpdateApplied', 'pkgDenied', 'pkgD2WrapOnMessage', 'pkgD2Pending', 'pkgD2Receive', 'pkgD2PollSummary', 'pkgOsPlan', 'pkgOsPlanRender', 'pkgOsPlanSelChange', 'pkgOsPlanRequest', 'pkgOsPlanDownload', 'pkgOsPlanInstall'];
+    obj.exports = ['onWebUIStartupEnd', 'pkgSidebarInject', 'pkgRequestList', 'pkgList', 'pkgCompose', 'pkgTableHtml', 'pkgTargetOs', 'pkgDevToggle', 'pkgDevSelectAll', 'pkgDevOsFilter', 'pkgDevListRender', 'pkgSelectedNodes', 'pkgSidebarOpen', 'pkgSidebarRenderDevices', 'pkgSidebarRender', 'pkgPkgToggle', 'pkgPkgSelectAll', 'pkgPkgSummary', 'pkgBatchRun', 'pkgOsScan', 'pkgOsImportManifest', 'pkgOsExportDownloader', 'pkgOsExportGo', 'pkgDownloaderReady', 'pkgOsScanPoll', 'pkgOsScanParse', 'pkgOsScanRender', 'pkgOsScanExport', 'pkgOsSidebarOpen', 'pkgOsRender', 'pkgOsTable', 'pkgOsKind', 'pkgOsAdminOpen', 'pkgIsOsView', 'pkgInstall', 'pkgRunOn', 'goPageStart', 'pkgMsg', 'pkgTabSetActive', 'pkgAdminOpen', 'pkgAdminRender', 'pkgCreateOpen', 'pkgCreateRender', 'pkgCreateCurOs', 'pkgCreateDefaultType', 'pkgCreateFieldSync', 'pkgCreateDraftSync', 'pkgCreateOsChange', 'pkgCreateOsHint', 'pkgCreateUpload', 'pkgCreateArtifactDel', 'pkgCreatePreset', 'pkgCreateInsert', 'pkgCreateSave', 'pkgCreateCheckId', 'pkgCreateCatalogArrived', 'pkgAdminAdd', 'pkgAdminEdit', 'pkgAdminForm', 'pkgAdminCurOs', 'pkgAdminFieldSync', 'pkgAdminDraftSync', 'pkgAdminOsChange', 'pkgAdminOsHint', 'pkgAdminSave', 'pkgAdminDelete', 'pkgAdminUpload', 'pkgAdminUploadDo', 'pkgAdminArtifactDel', 'pkgAdminStatus', 'pkgAdminRefresh', 'pkgAdminOsFilter', 'pkgBinBanner', 'pkgOsPluginOpen', 'pkgOsPluginRender', 'pkgUpdateOnline', 'pkgUpdateFile', 'pkgUpdateUpload', 'pkgUpdateInfo', 'pkgUpdateApplied', 'pkgDenied', 'pkgD2WrapOnMessage', 'pkgD2Pending', 'pkgD2Receive', 'pkgD2PollSummary', 'pkgOsPlan', 'pkgOsPlanRender', 'pkgOsPlanSelChange', 'pkgOsPlanRequest', 'pkgOsPlanDownload', 'pkgOsPlanInstall', 'pkgOsPlanMachToggle', 'pkgOsPlanMachSelAll'];
 
     obj.onWebUIStartupEnd = function () {
         try {
@@ -1817,7 +1821,7 @@ module.exports.pkgmanager = function (parent) {
             if (m == null) return;
             var osfAdm = ((typeof userinfo != 'undefined') && (userinfo != null) && (userinfo.siteadmin === 0xFFFFFFFF));
             var x = '<div style="margin-bottom:8px;font-size:16px"><b>Aggiornamenti del sistema operativo</b> <span style="color:#888;font-weight:normal;font-size:12px">(inventario per macchina — scaricamento su questo server, installazione airgap in LAN)</span></div>' + pluginHandler.pkgmanager.pkgBinBanner();
-            x += '<div style="margin-bottom:6px"><input type=button value="Scansiona macchine" onclick="pluginHandler.pkgmanager.pkgOsScan()"> ' + (osfAdm ? '<input type=button value="Scarica i mancanti sul server" onclick="pluginHandler.pkgmanager.pkgOsPlanDownload()"> ' : '') + '<input type=button value="Installa aggiornamenti" onclick="pluginHandler.pkgmanager.pkgOsPlanInstall()"> ' + (osfAdm ? '<input type=button value="Ricalcola piano" onclick="pluginHandler.pkgmanager.pkgOsPlanRequest()" title="Ricalcola il piano senza riscansionare le macchine"> ' : '') + '<input type=button value="Esporta report (.json)" onclick="pluginHandler.pkgmanager.pkgOsScanExport()"> <span id="pkgmanagerPlanMsg" style="color:#888"></span></div>';
+            x += '<div style="margin-bottom:6px"><input type=button value="Scansiona macchine" onclick="pluginHandler.pkgmanager.pkgOsScan()"> ' + (osfAdm ? '<input type=button value="Scarica i mancanti sul server" onclick="pluginHandler.pkgmanager.pkgOsPlanDownload()"> ' : '') + '<input type=button value="Installa aggiornamenti" onclick="pluginHandler.pkgmanager.pkgOsPlanInstall()"> ' + (osfAdm ? '<input type=button value="Ricalcola piano" onclick="pluginHandler.pkgmanager.pkgOsPlanRequest()" title="Ricalcola il piano senza riscansionare le macchine"> ' : '') + (osfAdm ? '<input type=button value="Esporta downloader…" title="Genera il downloader COMPILATO per la piattaforma scelta con l inventario della scansione incorporato: eseguilo su una macchina con internet, copia os-updates/ nello store (My Files) e importa il manifest — LA via per i server airgap (py = script Python)" onclick="pluginHandler.pkgmanager.pkgOsExportDownloader()"> ' : '') + '<input type=button value="Esporta report (.json)" onclick="pluginHandler.pkgmanager.pkgOsScanExport()"> <span id="pkgmanagerPlanMsg" style="color:#888"></span></div>';
             x += '<div id="pkgmanagerPlanWrap"></div>';
             x += '<div id="pkgmanagerScanResults" style="margin-top:10px"></div>';
             x += '<div id="pkgmanagerMsg" style="margin-top:10px;color:#888"></div>';
@@ -1856,6 +1860,26 @@ module.exports.pkgmanager = function (parent) {
         try { var s2 = document.getElementById('pkgmanagerOsPlanSel'); if (s2 != null) { window.pkgmanagerOsPlanSel = s2.value; } pluginHandler.pkgmanager.pkgOsPlanRender(); } catch (e) { }
     };
 
+
+    // v2.0.9: gestione selezione macchine per gruppo (checkbox + tutte/nessuna).
+    obj.pkgOsPlanMachToggle = function () {
+        try {
+            var selKey = window.pkgmanagerOsPlanSel;
+            if ((window.pkgmanagerOsPlanMachSel == null) || (selKey == null) || (window.pkgmanagerOsPlanMachSel[selKey] == null)) { return; }
+            var cbs = document.querySelectorAll('.pkgmanagerOsPlanMachCb');
+            for (var i = 0; i < cbs.length; i++) { window.pkgmanagerOsPlanMachSel[selKey][cbs[i].value] = cbs[i].checked; }
+        } catch (e) { }
+    };
+    obj.pkgOsPlanMachSelAll = function (on) {
+        try {
+            var selKey = window.pkgmanagerOsPlanSel;
+            if ((selKey == null) || (window.pkgmanagerOsPlan == null) || (window.pkgmanagerOsPlan.groups[selKey] == null)) { return; }
+            if (window.pkgmanagerOsPlanMachSel[selKey] == null) { window.pkgmanagerOsPlanMachSel[selKey] = {}; }
+            var grp = window.pkgmanagerOsPlan.groups[selKey];
+            for (var nid in grp.machines) { window.pkgmanagerOsPlanMachSel[selKey][nid] = (on === true); }
+            pluginHandler.pkgmanager.pkgOsPlanRender();
+        } catch (e) { }
+    };
     // v2.0.8: rendering piano — menu a discesa gruppi + tabella pacchetti.
     obj.pkgOsPlanRender = function () {
         try {
@@ -1880,6 +1904,22 @@ module.exports.pkgmanager = function (parent) {
             }
             if (grp.updates.length == 0) { x += '<div style="color:#080;padding:6px">Tutte le macchine del gruppo sono aggiornate.</div>'; w.innerHTML = x; return; }
             var nMiss = 0;
+            // v2.0.9: SELEZIONE MACCHINE per gruppo (non tutte insieme:
+            // aggiornamenti scaglionati). Default: tutte spunte.
+            if (window.pkgmanagerOsPlanMachSel == null) { window.pkgmanagerOsPlanMachSel = {}; }
+            if (window.pkgmanagerOsPlanMachSel[window.pkgmanagerOsPlanSel] == null) { window.pkgmanagerOsPlanMachSel[window.pkgmanagerOsPlanSel] = {}; }
+            var msel = window.pkgmanagerOsPlanMachSel[window.pkgmanagerOsPlanSel];
+            var onlineMap = {};
+            try { for (var oi in nodes) { var n0 = nodes[oi]; if (n0 && n0._id && ((n0.conn & 1) != 0)) { onlineMap[n0._id] = 1; } } } catch (e0) { }
+            x += '<div style="margin-bottom:8px;padding:6px;border:1px solid #ddd;border-radius:4px"><b>Macchine del gruppo (installazione)</b> — <a href=# onclick="pluginHandler.pkgmanager.pkgOsPlanMachSelAll(true);return false">tutte</a> / <a href=# onclick="pluginHandler.pkgmanager.pkgOsPlanMachSelAll(false);return false">nessuna</a>';
+            var machIds = Object.keys(grp.machines);
+            for (var mx = 0; mx < machIds.length; mx++) {
+                var mid2 = machIds[mx];
+                if (msel[mid2] == null) { msel[mid2] = true; }
+                var isOn = (onlineMap[mid2] != null);
+                x += '<label style="display:block;padding:2px 0"><input type=checkbox class="pkgmanagerOsPlanMachCb" value="' + EscapeHtml(mid2) + '"' + (msel[mid2] ? ' checked' : '') + (isOn ? '' : ' title="al momento offline: l installazione su di lei verra rifiutata dal server"') + ' onchange="pluginHandler.pkgmanager.pkgOsPlanMachToggle()"> ' + EscapeHtml(grp.machines[mid2]) + (isOn ? ' <span style="color:#080;font-size:11px">online</span>' : ' <span style="color:#a60;font-size:11px">offline</span>') + '</label>';
+            }
+            x += '</div>';
             x += '<table style="border-collapse:collapse;width:100%">';
             x += '<tr style="text-align:left;border-bottom:1px solid #ccc"><th style="padding:4px">Pacchetto</th><th style="padding:4px">Installata (min nel gruppo)</th><th style="padding:4px">Disponibile</th><th style="padding:4px">Dim.</th><th style="padding:4px">Sul server</th></tr>';
             for (var u = 0; u < grp.updates.length; u++) {
@@ -1932,13 +1972,22 @@ module.exports.pkgmanager = function (parent) {
             var debs = have.map(function (u2) { return '/tmp/' + u2.file; });
             parts.push('sudo -n dpkg -i ' + debs.join(' '));
             var cmd = parts.join(' && ');
-            var online = [];
-            try { for (var i2 in nodes) { var n = nodes[i2]; if (n && n._id && ((n.conn & 1) != 0) && (grp.machines[n._id] != null)) { online.push(n._id); } } } catch (e0) { }
-            if (online.length == 0) { for (var nid2 in grp.machines) { online.push(nid2); } }
+            // v2.0.9: solo le macchine SCELTE (checkbox per gruppo) e online;
+            // offline vengono segnalate ma escluse (il server rifiuterebbe).
+            var picked = [], skippedOff = [];
+            var msel2 = ((window.pkgmanagerOsPlanMachSel != null) && (window.pkgmanagerOsPlanMachSel[selKey] != null)) ? window.pkgmanagerOsPlanMachSel[selKey] : {};
+            var onlineMap2 = {};
+            try { for (var oi2 in nodes) { var n2 = nodes[oi2]; if (n2 && n2._id && ((n2.conn & 1) != 0)) { onlineMap2[n2._id] = 1; } } } catch (e0) { }
+            for (var nid3 in grp.machines) {
+                if (msel2[nid3] === false) { continue; }
+                if (onlineMap2[nid3] != null) { picked.push(nid3); } else { skippedOff.push(grp.machines[nid3]); }
+            }
+            var online = picked;
+            if (online.length == 0) { pluginHandler.pkgmanager.pkgMsg('Nessuna macchina selezionata online' + ((skippedOff.length > 0) ? (' (' + skippedOff.join(', ') + ' offline)') : '') + ' — spunta le macchine da aggiornare (online) e riprova.'); return; }
             var hasD2Dialog = (typeof d2runBegin == 'function');
             var responseid = hasD2Dialog ? d2runBegin(online) : pluginHandler.pkgmanager.pkgD2Pending(online);
             meshserver.send({ action: 'runcommands', nodeids: online, type: 3, cmds: cmd, runAsUser: 0, reply: true, responseid: responseid, timeout: 1800 });
-            pluginHandler.pkgmanager.pkgMsg('Installazione aggiornamenti (' + grp.distro + ' ' + grp.ver + ') avviata su ' + online.length + ' macchina/e — ' + have.length + ' pacchetti' + ((missCnt > 0) ? (' (' + missCnt + ' NON nello store: scaricali prima)') : '') + (hasD2Dialog ? ' — output nel dialogo dei risultati.' : ' — riepilogo qui a fine esecuzione.'));
+            pluginHandler.pkgmanager.pkgMsg('Installazione aggiornamenti (' + grp.distro + ' ' + grp.ver + ') avviata su ' + online.length + ' macchina/e — ' + have.length + ' pacchetti' + ((missCnt > 0) ? (' (' + missCnt + ' NON nello store: scaricali prima)') : '') + ((skippedOff.length > 0) ? (' — offline saltate: ' + skippedOff.join(', ')) : '') + (hasD2Dialog ? ' — output nel dialogo dei risultati.' : ' — riepilogo qui a fine esecuzione.'));
             if (!hasD2Dialog) { pluginHandler.pkgmanager.pkgD2PollSummary(responseid, Date.now(), 'Installazione aggiornamenti completata', 2040000); }
         } catch (e) { pluginHandler.pkgmanager.pkgMsg('Install fallito: ' + e); }
     };

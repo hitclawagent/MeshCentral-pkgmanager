@@ -2,8 +2,10 @@
 
 A [MeshCentral](https://github.com/Ylianst/MeshCentral) plugin for **remote package installation** on Windows, Linux and macOS agents. Catalog-driven, with **airgap installs** (devices never touch the internet: artifacts are downloaded from the MeshCentral server itself over the LAN).
 
-Current version: **2.0.8** — requires MeshCentral **1.3.1**
+Current version: **2.0.9** — requires MeshCentral **1.3.1**
 
+> **2.0.9**: per-group machine selection (checkbox list per OS group, default all; install only on the picked machines — offline ones are excluded and reported) and the compiled downloader export button is back in the OS view (airgap flow).
+>
 > **2.0.8**: OS-updates view redesigned — no more opaque bundle packages: after a scan the view shows a **per-OS dropdown** (one group per distro release), the **package list** with installed (min) vs candidate version and **server status** (✓ available / ✗ missing), a download button for the missing files only, and direct install from the plan (single dpkg with all debs) on the group's machines. The plan is computed server-side (`osplan`) and auto-refreshes after scan and after download. osfetch no longer creates catalog bundles; the airgap manifest import path (bundles) is unchanged.
 >
 > **2.0.7**: OS-update bundles rework — «Scarica aggiornamenti» now creates **ONE bundle PER DISTRO RELEASE** (`os-updates-<codename>`, named e.g. "Aggiornamenti OS — Ubuntu 26.04 (resolute)"); packages are deduped per NAME keeping the MAX version (machines at different levels converge to the same newest state); install runs ONE `dpkg -i` with all debs (dpkg handles ordering); bundle contents are visible per OS with an expandable file list (admin page + OS view); catalog writes are serialized (multiple bundles saved concurrently no longer lose each other). No more prompts.
