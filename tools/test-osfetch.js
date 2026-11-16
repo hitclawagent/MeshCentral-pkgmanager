@@ -53,7 +53,7 @@ global.fetch = async function (url) {
 
 // cattura le azioni server successive (importmanifest -> save)
 const replies = [];
-const fakeSession = { send: (m) => { if (m.method === 'pkgList') replies.push(m); }, user: { siteadmin: 4294967295, _id: 'user//test' }, userid: 'user//test' };
+const fakeSession = { send: (m) => { if ((m.method === 'pkgList') || (m.method === 'pkgOsPlan')) replies.push(m); }, user: { siteadmin: 4294967295, _id: 'user//test' }, userid: 'user//test' };
 const fakeParent2 = {};
 // catalogo iniziale vuoto
 fs.mkdirSync(path.join(tmp, 'plugins', 'pkgmanager'), { recursive: true });
@@ -77,33 +77,36 @@ setTimeout(() => {
   const store = path.join(tmp, 'plugins', 'pkgmanager', 'store');
   const dirs = fs.readdirSync(store);
   console.log('store dirs:', dirs.join(', '));
-  const cat = JSON.parse(fs.readFileSync(path.join(tmp, 'plugins', 'pkgmanager', 'catalog.json')));
-  const bundles = cat.packages.filter(p => p.kind === 'os');
-  console.log('bundles:', bundles.map(b => b.id + ' name="' + b.name + '" linux.artifacts=' + (b.linux ? b.linux.artifacts.length : 0)).join(' | '));
-  let ok = true;
-  const res = bundles.find(b => b.id === 'os-updates-resolute');
-  const nob = bundles.find(b => b.id === 'os-updates-noble');
-  if (!res || !nob) { console.error('FAIL: bundle per codename mancanti'); ok = false; }
+  // v2.0.8: il piano arriva via pkgOsPlan su session.send
+  const plans = replies.filter(m => m.method === 'pkgOsPlan').map(m => m.plan);
+  console.log('piani ricevuti:', plans.length);
+  let ok = plans.length === 1;
+  const plan = plans[0];
+  const res = plan.groups['resolute'];
+  const nob = plan.groups['noble'];
+  const win = plan.groups[Object.keys(plan.groups).find(k => k.startsWith('windows'))];
+  if (!res || !nob || !win) { console.error('FAIL: gruppi mancanti'); ok = false; }
   if (res) {
-    const arts = res.linux.artifacts;
-    // pkg-a presente UNA sola volta (max 2.0), pkg-old 9.9 (union: m2 8.0 -> 9.9), pkg-b dipendenza
-    const hasA = arts.some(a => a.startsWith('pkg-a_2.0_'));
-    const dupA = arts.filter(a => a.startsWith('pkg-a_')).length;
-    const hasOld = arts.some(a => a.startsWith('pkg-old_9.9_'));
-    if (!hasA || dupA !== 1) { console.error('FAIL: union max-version di pkg-a (dup=' + dupA + ')'); ok = false; }
-    if (!hasOld) { console.error('FAIL: union pkg-old -> 9.9 per portare m2 al livello di m1'); ok = false; }
-    // install = UN solo dpkg per tutti i deb
-    const dpkgCalls = (res.linux.cmd.match(/dpkg -i /g) || []).length;
-    if (dpkgCalls !== 1) { console.error('FAIL: install non è un solo dpkg (' + dpkgCalls + ')'); ok = false; }
-    if (!res.linux.cmd.includes('dpkg -i /tmp/pkg-a_2.0_amd64.deb /tmp/pkg-old_9.9_amd64.deb')) { console.error('FAIL: dpkg non contiene i deb dell union'); ok = false; }
-    if (res.linux.artifacts.some(a => a.startsWith('pkg-b_'))) { console.error('FAIL: pkg-b non dipendenza di nulla, non doveva esserci'); ok = false; }
-    if (!res.name.includes('resolute')) { console.error('FAIL: nome senza codename: ' + res.name); ok = false; }
+    const a = res.updates.find(u => u.package === 'pkg-a');
+    const oldp = res.updates.find(u => u.package === 'pkg-old');
+    const dupA = res.updates.filter(u => u.package === 'pkg-a').length;
+    if (!a || dupA !== 1) { console.error('FAIL: union max-version di pkg-a (dup=' + dupA + ')'); ok = false; }
+    if (a && a.version !== '2.0') { console.error('FAIL: versione max attesa 2.0, trovata ' + a.version); ok = false; }
+    if (!oldp || oldp.version !== '9.9') { console.error('FAIL: union pkg-old -> 9.9 per portare m2 al livello di m1'); ok = false; }
+    if (a && a.inStore !== true) { console.error('FAIL: pkg-a dovrebbe essere inStore dopo osfetch'); ok = false; }
+    if (a && !a.sha384) { console.error('FAIL: sha384 mancante per pkg-a'); ok = false; }
+    if (!res.name) { }
+    if (!res.storeDirName || res.storeDirName !== 'os-updates-resolute') { console.error('FAIL: storeDirName'); ok = false; }
+    if (res.machNames.length !== 2) { console.error('FAIL: macchine del gruppo resolute = ' + res.machNames.length); ok = false; }
   }
-  if (nob && nob.linux.artifacts.length !== 1) { console.error('FAIL: noble bundle atteso 1 file'); ok = false; }
-  // i deb scaricati esistono nello store
-  const resDir = path.join(store, 'os-updates-resolute');
-  const debFiles = fs.readdirSync(resDir).filter(f => f.endsWith('.deb'));
+  if (nob) { const n = nob.updates.find(u => u.package === 'pkg-n'); if (!n || n.inStore !== true) { console.error('FAIL: pkg-n inStore'); ok = false; } }
+  if (win && win.os !== 'windows') { console.error('FAIL: gruppo windows'); ok = false; }
+  // nessun bundle nel catalogo (v2.0.8: niente pkg kind:'os' creati da osfetch)
+  const cat = JSON.parse(fs.readFileSync(path.join(tmp, 'plugins', 'pkgmanager', 'catalog.json')));
+  if (cat.packages.filter(p => p.kind === 'os').length !== 0) { console.error('FAIL: osfetch non deve piu creare bundle nel catalogo'); ok = false; }
+  // i deb sono nello store
+  const debFiles = fs.readdirSync(path.join(store, 'os-updates-resolute')).filter(f => f.endsWith('.deb'));
   if (debFiles.length < 2) { console.error('FAIL: deb mancanti nello store: ' + debFiles.join(',')); ok = false; }
-  console.log(ok ? 'OSFETCH END-TO-END OK' : 'OSFETCH FALLITO');
+  console.log(ok ? 'OSFETCH END-TO-END OK (v2.0.8 piano)' : 'OSFETCH FALLITO');
   process.exit(ok ? 0 : 1);
 }, 2500);

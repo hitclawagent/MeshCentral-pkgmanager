@@ -2,8 +2,10 @@
 
 A [MeshCentral](https://github.com/Ylianst/MeshCentral) plugin for **remote package installation** on Windows, Linux and macOS agents. Catalog-driven, with **airgap installs** (devices never touch the internet: artifacts are downloaded from the MeshCentral server itself over the LAN).
 
-Current version: **2.0.7** — requires MeshCentral **1.3.1**
+Current version: **2.0.8** — requires MeshCentral **1.3.1**
 
+> **2.0.8**: OS-updates view redesigned — no more opaque bundle packages: after a scan the view shows a **per-OS dropdown** (one group per distro release), the **package list** with installed (min) vs candidate version and **server status** (✓ available / ✗ missing), a download button for the missing files only, and direct install from the plan (single dpkg with all debs) on the group's machines. The plan is computed server-side (`osplan`) and auto-refreshes after scan and after download. osfetch no longer creates catalog bundles; the airgap manifest import path (bundles) is unchanged.
+>
 > **2.0.7**: OS-update bundles rework — «Scarica aggiornamenti» now creates **ONE bundle PER DISTRO RELEASE** (`os-updates-<codename>`, named e.g. "Aggiornamenti OS — Ubuntu 26.04 (resolute)"); packages are deduped per NAME keeping the MAX version (machines at different levels converge to the same newest state); install runs ONE `dpkg -i` with all debs (dpkg handles ordering); bundle contents are visible per OS with an expandable file list (admin page + OS view); catalog writes are serialized (multiple bundles saved concurrently no longer lose each other). No more prompts.
 >
 > **2.0.6**: scan info fixes — Windows version column now shows the REAL release from the registry (DisplayVersion, e.g. "25H2 (10.0.26300)"; the old column showed the Windows API version "10.0.x" even on Windows 11) and Linux os-release values are quote-stripped (VERSION_ID arrives quoted, e.g. "26.04"; the codename is used verbatim in the vendor repo URLs).
