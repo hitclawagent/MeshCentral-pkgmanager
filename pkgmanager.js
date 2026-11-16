@@ -297,13 +297,53 @@
  * this closure — only page globals (meshserver, currentNode, nodes, userinfo,
  * Q, EscapeHtml, d2runBegin...) and pluginHandler.pkgmanager.*.
  */
+        // v2.1.4: confronto versioni Debian in JS PURO (fallback quando il
+// server MeshCentral NON ha dpkg — es. container Alpine). Il vecchio
+// fallback (String >= String) confrontava '4.10' < '4.9' -> phantom
+// update + loop di reinstallazione (caso xxd di Mauro).
+var verOrder = function (c) { var cc = c.charCodeAt(0); if (cc === 126) { return -1; } if (/^[A-Za-z]$/.test(c)) { return cc; } return cc + 256; };
+var verrevcmp = function (a, b) {
+    var i = 0, j = 0;
+    while ((i < a.length) || (j < b.length)) {
+        while (((i < a.length) && !/[0-9]/.test(a[i])) || ((j < b.length) && !/[0-9]/.test(b[j]))) {
+            var ac = (i < a.length) ? a.charCodeAt(i) : 0;
+            var bc = (j < b.length) ? b.charCodeAt(j) : 0;
+            if (ac !== bc) { return ((ac == 0) ? 0 : verOrder(String.fromCharCode(ac))) - ((bc == 0) ? 0 : verOrder(String.fromCharCode(bc))); }
+            i++; j++;
+        }
+        while ((i < a.length) && (a[i] == '0')) { i++; }
+        while ((j < b.length) && (b[j] == '0')) { j++; }
+        var s1 = i, s2 = j;
+        while ((i < a.length) && /[0-9]/.test(a[i])) { i++; }
+        while ((j < b.length) && /[0-9]/.test(b[j])) { j++; }
+        if ((i - s1) !== (j - s2)) { return (i - s1) - (j - s2); }
+        var n1 = a.slice(s1, i), n2 = b.slice(s2, j);
+        if (n1 !== n2) { return (parseInt(n1, 10) - parseInt(n2, 10)); }
+    }
+    return 0;
+};
+const verDebCmp = function (A, B) {
+    A = String(A); B = String(B);
+    var ea = A.indexOf(':'), eb = B.indexOf(':');
+    var e1 = (ea >= 0) ? (parseInt(A.slice(0, ea), 10) || 0) : 0;
+    var e2 = (eb >= 0) ? (parseInt(B.slice(0, eb), 10) || 0) : 0;
+    if (e1 !== e2) { return (e1 - e2); }
+    var a = (ea >= 0) ? A.slice(ea + 1) : A, b = (eb >= 0) ? B.slice(eb + 1) : B;
+    var ra = a.lastIndexOf('-'), rb = b.lastIndexOf('-');
+    var uc = verrevcmp((ra >= 0) ? a.slice(0, ra) : a, (rb >= 0) ? b.slice(0, rb) : b);
+    if (uc !== 0) { return uc; }
+    return verrevcmp((ra >= 0) ? a.slice(ra + 1) : '', (rb >= 0) ? b.slice(rb + 1) : '');
+};
+
+module.exports.verDebCmp = verDebCmp;
+
 module.exports.pkgmanager = function (parent) {
     var crypto = require('crypto');
     var zlib = require('zlib');
     var childProcess = null; try { childProcess = require('child_process'); } catch (e) { }
     var vmMod = null; try { vmMod = require('vm'); } catch (e) { }
     var obj = {};
-    obj.version = '2.1.3';
+    obj.version = '2.1.4';
     obj.fs = parent.fs;
     obj.path = parent.path;
     obj.catalogPath = parent.path.join(parent.parent.datapath, 'plugins', 'pkgmanager', 'catalog.json');
@@ -2828,7 +2868,7 @@ module.exports.pkgmanager = function (parent) {
     obj.osPlanCompute = async function (fmachs, fget, fskipped) {
         var zlib2 = zlib;
         var fhasDpkg = false; try { if (childProcess != null) { childProcess.execFileSync('dpkg', ['--version'], { stdio: 'ignore' }); fhasDpkg = true; } } catch (e) { }
-        var fverGe = function (a, b) { if (a === b) { return true; } if (fhasDpkg) { try { childProcess.execFileSync('dpkg', ['--compare-versions', String(a), 'ge', String(b)], { stdio: 'ignore' }); return true; } catch (e) { return false; } } return (String(a) >= String(b)); };
+        var fverGe = function (a, b) { if (a === b) { return true; } if (fhasDpkg) { try { childProcess.execFileSync('dpkg', ['--compare-versions', String(a), 'ge', String(b)], { stdio: 'ignore' }); return true; } catch (e) { return false; } } return (verDebCmp(a, b) >= 0); };
         var fparseIdx = function (txt) { var idx = {}; var st = String(txt).split('\n\n'); for (var s = 0; s < st.length; s++) { var o = {}; var ls = st[s].split('\n'); for (var l = 0; l < ls.length; l++) { var c = ls[l].indexOf(':'); if (c > 0) { var k = ls[l].slice(0, c).trim(); var v = ls[l].slice(c + 1).trim(); if (!(k in o)) { o[k] = v; } } } if (o.Package && o.Version && (o.Architecture === 'amd64' || o.Architecture === 'all') && o.Filename) { if (idx[o.Package] == null) { idx[o.Package] = []; } idx[o.Package].push(o); } } return idx; };
         var fbest = function (arr) { var b = arr[0]; for (var i = 0; i < arr.length; i++) { if (fverGe(arr[i].Version, b.Version)) { b = arr[i]; } } return b; };
         var fdeps = function (st) { var out = []; var gs = String(st || '').split(','); for (var g = 0; g < gs.length; g++) { var t = gs[g].trim(); if (t == '') { continue; } var alts = t.split('|'); var names = []; for (var a = 0; a < alts.length; a++) { var n0 = alts[a].trim().split(/[ (]/)[0].trim(); if (n0 != '') { names.push(n0); } } if (names.length > 0) { out.push(names); } } return out; };

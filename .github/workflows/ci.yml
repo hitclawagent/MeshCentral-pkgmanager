@@ -35,3 +35,5 @@ jobs:
         run: node tools/test-client.js
       - name: server flow end-to-end (osfetch bundles)
         run: node tools/test-osfetch.js
+      - name: debian version comparator
+        run: node tools/test-vercmp.js
