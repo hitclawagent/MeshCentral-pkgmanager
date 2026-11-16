@@ -1,5 +1,15 @@
 /**
- * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.1.
+ * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.2.
+ *
+ *     v2.0.2 SELF-CONTAINED REPLY PLUMBING: the OS-update scanner and the
+ *     batch/single installs depended on the d2run* machinery (d2runBegin/
+ *     d2runPending/d2runResponseId + reply handlers) that only exists in the
+ *     patched fork UI — on an OFFICIAL MeshCentral the scan stayed "waiting"
+ *     forever because nothing collected the runcommands replies. The plugin
+ *     now wraps meshserver.onMessage once (idempotent) and routes its own
+ *     replies into window.pkgmanagerD2; on the forked UI it coexists with the
+ *     dialog (install still opens it when present, otherwise a summary is
+ *     reported via the message line).
  *
  *     v2.0.1 OS CLASSIFICATION FIX: machines are now classified by AGENT TYPE
  *     (node.agent.id — always present) before falling back to the os_title/os
@@ -237,7 +247,7 @@ module.exports.pkgmanager = function (parent) {
     var childProcess = null; try { childProcess = require('child_process'); } catch (e) { }
     var vmMod = null; try { vmMod = require('vm'); } catch (e) { }
     var obj = {};
-    obj.version = '2.0.1';
+    obj.version = '2.0.2';
     obj.fs = parent.fs;
     obj.path = parent.path;
     obj.catalogPath = parent.path.join(parent.parent.datapath, 'plugins', 'pkgmanager', 'catalog.json');
@@ -318,10 +328,16 @@ module.exports.pkgmanager = function (parent) {
     setTimeout(function () { try { obj.ensureBinaries(); } catch (e) { console.log('pkgmanager[server]: ensureBinaries errore: ' + e); } }, 15000);
 
     // ---- Client-side (stringified into the browser) ----
-    obj.exports = ['onWebUIStartupEnd', 'pkgSidebarInject', 'pkgRequestList', 'pkgList', 'pkgCompose', 'pkgTableHtml', 'pkgTargetOs', 'pkgDevToggle', 'pkgDevSelectAll', 'pkgDevOsFilter', 'pkgDevListRender', 'pkgSelectedNodes', 'pkgSidebarOpen', 'pkgSidebarRenderDevices', 'pkgSidebarRender', 'pkgPkgToggle', 'pkgPkgSelectAll', 'pkgPkgSummary', 'pkgBatchRun', 'pkgOsScan', 'pkgOsImportManifest', 'pkgOsFetchUpdates', 'pkgOsExportDownloader', 'pkgOsExportGo', 'pkgDownloaderReady', 'pkgOsScanPoll', 'pkgOsScanParse', 'pkgOsScanRender', 'pkgOsScanExport', 'pkgOsSidebarOpen', 'pkgOsRender', 'pkgOsTable', 'pkgOsKind', 'pkgOsAdminOpen', 'pkgIsOsView', 'pkgInstall', 'pkgRunOn', 'goPageStart', 'pkgMsg', 'pkgTabSetActive', 'pkgAdminOpen', 'pkgAdminRender', 'pkgCreateOpen', 'pkgCreateRender', 'pkgCreateCurOs', 'pkgCreateDefaultType', 'pkgCreateFieldSync', 'pkgCreateDraftSync', 'pkgCreateOsChange', 'pkgCreateOsHint', 'pkgCreateUpload', 'pkgCreateArtifactDel', 'pkgCreatePreset', 'pkgCreateInsert', 'pkgCreateSave', 'pkgCreateCheckId', 'pkgCreateCatalogArrived', 'pkgAdminAdd', 'pkgAdminEdit', 'pkgAdminForm', 'pkgAdminCurOs', 'pkgAdminFieldSync', 'pkgAdminDraftSync', 'pkgAdminOsChange', 'pkgAdminOsHint', 'pkgAdminSave', 'pkgAdminDelete', 'pkgAdminUpload', 'pkgAdminUploadDo', 'pkgAdminArtifactDel', 'pkgAdminStatus', 'pkgAdminRefresh', 'pkgAdminOsFilter', 'pkgBinBanner', 'pkgOsPluginOpen', 'pkgOsPluginRender', 'pkgUpdateOnline', 'pkgUpdateFile', 'pkgUpdateUpload', 'pkgUpdateInfo', 'pkgUpdateApplied', 'pkgDenied'];
+    obj.exports = ['onWebUIStartupEnd', 'pkgSidebarInject', 'pkgRequestList', 'pkgList', 'pkgCompose', 'pkgTableHtml', 'pkgTargetOs', 'pkgDevToggle', 'pkgDevSelectAll', 'pkgDevOsFilter', 'pkgDevListRender', 'pkgSelectedNodes', 'pkgSidebarOpen', 'pkgSidebarRenderDevices', 'pkgSidebarRender', 'pkgPkgToggle', 'pkgPkgSelectAll', 'pkgPkgSummary', 'pkgBatchRun', 'pkgOsScan', 'pkgOsImportManifest', 'pkgOsFetchUpdates', 'pkgOsExportDownloader', 'pkgOsExportGo', 'pkgDownloaderReady', 'pkgOsScanPoll', 'pkgOsScanParse', 'pkgOsScanRender', 'pkgOsScanExport', 'pkgOsSidebarOpen', 'pkgOsRender', 'pkgOsTable', 'pkgOsKind', 'pkgOsAdminOpen', 'pkgIsOsView', 'pkgInstall', 'pkgRunOn', 'goPageStart', 'pkgMsg', 'pkgTabSetActive', 'pkgAdminOpen', 'pkgAdminRender', 'pkgCreateOpen', 'pkgCreateRender', 'pkgCreateCurOs', 'pkgCreateDefaultType', 'pkgCreateFieldSync', 'pkgCreateDraftSync', 'pkgCreateOsChange', 'pkgCreateOsHint', 'pkgCreateUpload', 'pkgCreateArtifactDel', 'pkgCreatePreset', 'pkgCreateInsert', 'pkgCreateSave', 'pkgCreateCheckId', 'pkgCreateCatalogArrived', 'pkgAdminAdd', 'pkgAdminEdit', 'pkgAdminForm', 'pkgAdminCurOs', 'pkgAdminFieldSync', 'pkgAdminDraftSync', 'pkgAdminOsChange', 'pkgAdminOsHint', 'pkgAdminSave', 'pkgAdminDelete', 'pkgAdminUpload', 'pkgAdminUploadDo', 'pkgAdminArtifactDel', 'pkgAdminStatus', 'pkgAdminRefresh', 'pkgAdminOsFilter', 'pkgBinBanner', 'pkgOsPluginOpen', 'pkgOsPluginRender', 'pkgUpdateOnline', 'pkgUpdateFile', 'pkgUpdateUpload', 'pkgUpdateInfo', 'pkgUpdateApplied', 'pkgDenied', 'pkgD2WrapOnMessage', 'pkgD2Pending', 'pkgD2Receive', 'pkgD2PollSummary'];
 
     obj.onWebUIStartupEnd = function () {
         try {
+            // v2.0.2: reply plumbing SELF-CONTAINED. Sul MeshCentral ufficiale
+            // manca il machinery d2run* del fork (d2runBegin/d2runPending +
+            // handler delle risposte): qui wrappiamo meshserver.onMessage una
+            // volta sola e instradiamo le risposte runcommands del plugin in
+            // window.pkgmanagerD2. Sul fork coesiste senza conflitti (rid diversi).
+            pluginHandler.pkgmanager.pkgD2WrapOnMessage();
             pluginHandler.registerPluginTab({ tabId: 'pkgmanagerTab', tabTitle: 'Packages' });
             var d = document.getElementById('pkgmanagerTab');
             if (d != null) { d.innerHTML = '<div style="padding:12px;font-family:Arial,Helvetica,sans-serif">Loading package catalog…</div>'; }
@@ -329,6 +345,63 @@ module.exports.pkgmanager = function (parent) {
             pluginHandler.pkgmanager.pkgSidebarInject();
             pluginHandler.pkgmanager.pkgRequestList();
         } catch (e) { console.log('pkgmanager startup failed: ' + e); }
+    };
+
+    // v2.0.2: wrap idempotente di meshserver.onMessage (page context).
+    obj.pkgD2WrapOnMessage = function () {
+        try {
+            if ((typeof meshserver != 'object') || (meshserver == null) || (meshserver.onMessage == null)) { return; }
+            if (meshserver.onMessage.pkgmanagerWrapped === true) { return; }
+            var prev = meshserver.onMessage;
+            var wrapped = function (server, message) {
+                try { pluginHandler.pkgmanager.pkgD2Receive(message); } catch (e2) { }
+                prev(server, message);
+            };
+            wrapped.pkgmanagerWrapped = true;
+            meshserver.onMessage = wrapped;
+        } catch (e) { }
+    };
+
+    // v2.0.2: pending del plugin (responseid -> risultati per nodo), indipendente
+    // dal fork (d2runPending) e dall'ufficiale (nulla).
+    obj.pkgD2Pending = function (nodeids) {
+        if (window.pkgmanagerD2 == null) { window.pkgmanagerD2 = {}; }
+        var rid = 'pkgm-' + Date.now() + '-' + Math.floor(Math.random() * 1000000);
+        window.pkgmanagerD2[rid] = { nodes: nodeids.slice(0), results: {} };
+        return rid;
+    };
+
+    // v2.0.2: ricezione risposte runcommands. Due canali:
+    // - action 'runcommands' con responseid e SENZA nodeid = errore immediato
+    //   del server ("Agent not connected", "Access denied", ...): attribuito al
+    //   primo nodo senza risultato (stessa semantica del fork);
+    // - msg type 'runcommands' con nodeid = chunk di output del comando.
+    // I chunk consecutivi dello stesso nodo vengono CONCATENATI.
+    obj.pkgD2Receive = function (message) {
+        try {
+            if ((message == null) || (message.responseid == null) || (window.pkgmanagerD2 == null)) { return; }
+            var p = window.pkgmanagerD2[message.responseid];
+            if (p == null) { return; }
+            var nid = message.nodeid;
+            if (nid == null) { for (var i in p.nodes) { if (p.results[p.nodes[i]] == null) { nid = p.nodes[i]; break; } } }
+            if (nid == null) { return; }
+            var txt = String((message.result == null) ? '' : message.result);
+            p.results[nid] = ((p.results[nid] == null) ? '' : (String(p.results[nid]) + '\n')) + txt;
+        } catch (e) { }
+    };
+
+    // v2.0.2: attesa sintetica per gli install su UI ufficiale (senza dialogo
+    // d2run del fork): riporta via pkgMsg quando tutte le macchine hanno
+    // risposto o allo scadere del cap.
+    obj.pkgD2PollSummary = function (rid, started, label, cap) {
+        try {
+            var p = ((window.pkgmanagerD2 != null) && (window.pkgmanagerD2[rid] != null)) ? window.pkgmanagerD2[rid] : null;
+            var got = 0, total = 0;
+            if (p != null) { for (var i in p.nodes) { total++; if (p.results[p.nodes[i]] != null) { got++; } } }
+            if ((got < total) && ((Date.now() - started) < (cap || 420000))) { setTimeout(function () { pluginHandler.pkgmanager.pkgD2PollSummary(rid, started, label, cap); }, 2000); return; }
+            try { delete window.pkgmanagerD2[rid]; } catch (e2) { }
+            pluginHandler.pkgmanager.pkgMsg(label + ': ' + got + '/' + total + ' macchine hanno restituito output' + ((got < total) ? ' (timeout o nessuna risposta dalle restanti).' : '.'));
+        } catch (e) { }
     };
 
     // "Packages" entry in the LEFT SIDEBAR (classic + default3 render #page_leftbar;
@@ -1754,8 +1827,10 @@ module.exports.pkgmanager = function (parent) {
                 if (groups[os] == null) { groups[os] = []; }
                 groups[os].push(machs[i2]._id);
             }
-            var rid = ((typeof d2runResponseId == 'function') ? d2runResponseId() : ('osscan-' + Date.now() + '-' + Math.floor(Math.random() * 1000000)));
-            if (typeof d2runPending != 'object') { window.d2runPending = {}; }
+            // v2.0.2: pending PROPRI del plugin (window.pkgmanagerD2), riempito
+            // dall'interceptor su meshserver.onMessage — nessuna dipendenza dal
+            // machinery d2run* del fork (assente sul MeshCentral ufficiale).
+            var rid = pluginHandler.pkgmanager.pkgD2Pending(allids);
             var allids = [];
             for (var g in groups) { allids = allids.concat(groups[g]); }
             d2runPending[rid] = { nodes: allids.slice(0), results: {} };
@@ -1806,7 +1881,7 @@ module.exports.pkgmanager = function (parent) {
         try {
             var run = window.pkgmanagerOsScan;
             if ((run == null) || (run.done)) { return; }
-            var p = ((typeof d2runPending == 'object') && (d2runPending[run.rid] != null)) ? d2runPending[run.rid] : null;
+            var p = ((window.pkgmanagerD2 != null) && (window.pkgmanagerD2[run.rid] != null)) ? window.pkgmanagerD2[run.rid] : null;
             var got = 0, total = 0;
             if (p != null) {
                 for (var nid in run.machs) {
@@ -1823,7 +1898,7 @@ module.exports.pkgmanager = function (parent) {
             if ((got < total) && ((Date.now() - run.started) < 180000)) {
                 setTimeout(function () { pluginHandler.pkgmanager.pkgOsScanPoll(); }, 1000);
             } else {
-                try { delete d2runPending[run.rid]; } catch (e2) { }
+                try { delete window.pkgmanagerD2[run.rid]; } catch (e2) { }
                 run.done = true;
                 pluginHandler.pkgmanager.pkgOsScanRender();
                 pluginHandler.pkgmanager.pkgMsg('Scansione completata: ' + got + '/' + total + ' macchine — «Scarica aggiornamenti» fa scaricare i pacchetti mancanti al server e crea il bundle da solo.');
@@ -2160,12 +2235,16 @@ module.exports.pkgmanager = function (parent) {
                     var to = (def.timeout || 300); if (to > sends[key].timeout) { sends[key].timeout = to; }
                 }
             }
-            var responseid = d2runBegin(allids);
+            // v2.0.2: se c'è il dialogo del fork (d2runBegin) usalo; altrimenti
+            // pending interno + riassunto via pkgMsg (UI ufficiale).
+            var hasD2Dialog = (typeof d2runBegin == 'function');
+            var responseid = hasD2Dialog ? d2runBegin(allids) : pluginHandler.pkgmanager.pkgD2Pending(allids);
             for (var key in sends) {
                 var g = sends[key];
                 meshserver.send({ action: 'runcommands', nodeids: g.nodeids, type: g.type, cmds: g.cmds.join('\n'), runAsUser: 0, reply: true, responseid: responseid, timeout: g.timeout });
             }
-            pluginHandler.pkgmanager.pkgMsg(((kind == 'delete') ? 'Eliminazione' : 'Installazione') + ' airgap di ' + selPkg.length + ' pacchett' + ((selPkg.length == 1) ? 'o' : 'i') + ' su ' + allids.length + ' macchina/e avviata — artefatti serviti da questo server in LAN; output nel dialogo dei risultati.');
+            pluginHandler.pkgmanager.pkgMsg(((kind == 'delete') ? 'Eliminazione' : 'Installazione') + ' airgap di ' + selPkg.length + ' pacchett' + ((selPkg.length == 1) ? 'o' : 'i') + ' su ' + allids.length + ' macchina/e avviata — artefatti serviti da questo server in LAN' + (hasD2Dialog ? '; output nel dialogo dei risultati.' : '; riepilogo qui a fine esecuzione.'));
+            if (!hasD2Dialog) { pluginHandler.pkgmanager.pkgD2PollSummary(responseid, Date.now(), ((kind == 'delete') ? 'Eliminazione' : 'Installazione') + ' completata', (sends[key] != null ? ((parseInt(sends[key].timeout) || 300) + 120) * 1000 : 420000)); }
         } catch (e) { console.log('pkgmanager batch run failed: ' + e); }
     };
 
@@ -2183,9 +2262,11 @@ module.exports.pkgmanager = function (parent) {
             if (def == null) { pluginHandler.pkgmanager.pkgMsg('Nessun install per questo OS (' + os + ').'); return; }
             var cmd = pluginHandler.pkgmanager.pkgCompose(pkg, def);
             if (cmd == null) { pluginHandler.pkgmanager.pkgMsg('"' + pkg.name + '" (' + os + '): artefatto mancante nello store del server.'); return; }
-            var responseid = d2runBegin([n._id]);
+            var hasD2Dialog2 = (typeof d2runBegin == 'function');
+            var responseid = hasD2Dialog2 ? d2runBegin([n._id]) : pluginHandler.pkgmanager.pkgD2Pending([n._id]);
             meshserver.send({ action: 'runcommands', nodeids: [n._id], type: def.type, cmds: cmd, runAsUser: 0, reply: true, responseid: responseid, timeout: (def.timeout || 300) });
-            pluginHandler.pkgmanager.pkgMsg('Installazione airgap di "' + pkg.name + '" avviata su ' + n.name + ' — output nel dialogo dei risultati.');
+            pluginHandler.pkgmanager.pkgMsg('Installazione airgap di "' + pkg.name + '" avviata su ' + n.name + (hasD2Dialog2 ? ' — output nel dialogo dei risultati.' : ' — riepilogo qui a fine esecuzione.'));
+            if (!hasD2Dialog2) { pluginHandler.pkgmanager.pkgD2PollSummary(responseid, Date.now(), 'Installazione di "' + pkg.name + '" su ' + n.name + ' completata', ((parseInt(def.timeout) || 300) + 120) * 1000); }
         } catch (e) { console.log('pkgmanager run failed: ' + e); }
     };
 
