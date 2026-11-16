@@ -1,6 +1,17 @@
 /**
  * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
  *
+ *     v2.1.7 AUTO-RESTART EVERYWHERE: the v2.1.6 check shipped inside the
+ *     NEW code, but after a screen-install the OLD cached module keeps
+ *     running and never saw it. Now: 60s poll (guarded, unref'd) notices a
+ *     different config.json version on disk; self-update (online/file
+ *     buttons) aligns config.json and auto-restarts by default
+ *     (pkgmanagerAutoRestart:false to opt out); all restarts use the
+ *     launcher channel ("Server restart..." on stdout, clean relaunch in
+ *     500ms) instead of a bare exit(0) that the launcher reads as a crash.
+ *     Stand-down: after reloadplugin the superseded module stops
+ *     scheduling (globalThis.__pkgmanagerActiveVersion sentinel).
+ *
  *     v2.1.6 AUTO-RESTART: server_startup detects an on-disk config.json
  *     version different from the running one (happens right after an
  *     install/update, where require() returns the cached old module) and
@@ -358,7 +369,8 @@ module.exports.pkgmanager = function (parent) {
     var childProcess = null; try { childProcess = require('child_process'); } catch (e) { }
     var vmMod = null; try { vmMod = require('vm'); } catch (e) { }
     var obj = {};
-    obj.version = '2.1.6';
+    obj.version = '2.1.7';
+        globalThis.__pkgmanagerActiveVersion = obj.version; // v2.1.7: versione ATTIVA (il vecchio modulo in cache dopo un install resta a ZONA, il reloadplugin la aggiorna)
     obj.fs = parent.fs;
     obj.path = parent.path;
     obj.catalogPath = parent.path.join(parent.parent.datapath, 'plugins', 'pkgmanager', 'catalog.json');
@@ -2691,6 +2703,14 @@ module.exports.pkgmanager = function (parent) {
         obj.syncStoreLinks();
         obj.pkgConfigInvariantCheck(); // v2.0.4
         obj.pkgAutoRestartCheck(); // v2.1.6
+        if (!obj.pkgPollStarted) { // v2.1.7: poll — copre anche l'install dalla
+            // schermata Plugin, dove il core chiama require() che restituisce il
+            // modulo IN CACHE (codice vecchio): questo modulo nota il nuovo
+            // config.json a disco entro 60s e riavvia via canale launcher.
+            obj.pkgPollStarted = true;
+            obj.pkgPollTimer = setInterval(function () { obj.pkgAutoRestartCheck(); }, 60000);
+            if (obj.pkgPollTimer.unref) { try { obj.pkgPollTimer.unref(); } catch (e4) { } }
+        }
     };
 
     // v2.1.6: AUTO-RESTART dopo install/update del plugin. Dopo l'install il
@@ -2706,7 +2726,8 @@ module.exports.pkgmanager = function (parent) {
         try {
             var disk = JSON.parse(parent.fs.readFileSync(obj.pkgLocalConfigPath));
             var auto = (disk.autoRestartOnUpdate !== false);
-            if (auto && (typeof disk.version == 'string') && (disk.version !== obj.version) && !obj.pkgRestartScheduled) {
+            var active = (globalThis.__pkgmanagerActiveVersion || obj.version);
+            if (auto && (typeof disk.version == 'string') && (disk.version !== obj.version) && (disk.version !== active) && !obj.pkgRestartScheduled) {
                 obj.pkgRestartScheduled = true;
                 console.log('pkgmanager[server]: versione ' + disk.version + ' installata su disco (in esecuzione ' + obj.version + '); riavvio del server tra 2 secondi per caricare il nuovo codice...');
                 setTimeout(function () { console.log('Server restart...'); process.exit(0); }, 2000);
@@ -3357,13 +3378,16 @@ log('prossimo passo: copia ' + OUT_DIR + '/ nello store del server (My Files -> 
             var bakPath = selfPath + '.bak-' + obj.version;
             try { parent.fs.copyFileSync(selfPath, bakPath); } catch (e1) { obj.replyCatalog(session, null, 'Aggiornamento plugin: backup fallito (' + e1 + ') — niente sovrascrittura.'); return; }
             parent.fs.writeFileSync(selfPath, String(code));
+            // v2.1.7: allinea la versione anche nel config.json a disco — e'
+            // la fonte di verita' del check auto-restart (poll/immediato).
+            try { var _cfg = JSON.parse(parent.fs.readFileSync(obj.pkgLocalConfigPath)); _cfg.version = v; parent.fs.writeFileSync(obj.pkgLocalConfigPath, JSON.stringify(_cfg, null, 2)); } catch (e2) { console.log('pkgmanager[server]: config.json non allineato alla v' + v + ': ' + e2); }
             try { if (parent.fs.existsSync(obj.updatePendingPath)) { parent.fs.unlinkSync(obj.updatePendingPath); } } catch (e2) { }
             obj._pendingUpdate = null;
             console.log('pkgmanager[server]: plugin updated ' + obj.version + ' -> ' + v + ' (backup: ' + parent.path.basename(bakPath) + ', sha384=' + sha.slice(0, 16) + '...)');
-            var auto = false;
-            try { var _pc = parent.parent.config.settings.plugins; auto = ((_pc != null) && (_pc.pkgmanagerAutoRestart === true)); } catch (e3) { }
-            var msg = 'Plugin aggiornato a v' + v + ' (backup: pkgmanager.js.bak-' + obj.version + ', sha384 ' + sha.slice(0, 16) + '...). RIAVVIA MeshCentral per attivare la nuova versione.';
-            if (auto) { msg += ' Riavvio automatico tra 3 secondi (pkgmanagerAutoRestart).'; setTimeout(function () { console.log('pkgmanager[server]: auto-restart per attivare la v' + v); process.exit(0); }, 3000); }
+            var auto = true;
+            try { var _pc = parent.parent.config.settings.plugins; auto = ((_pc == null) || (_pc.pkgmanagerAutoRestart !== false)); } catch (e3) { }
+            var msg = 'Plugin aggiornato a v' + v + ' (backup: pkgmanager.js.bak-' + obj.version + ', sha384 ' + sha.slice(0, 16) + '...).';
+            if (auto) { msg += ' Riavvio automatico di MeshCentral tra 3 secondi.'; setTimeout(function () { console.log('pkgmanager[server]: auto-restart per attivare la v' + v); console.log('Server restart...'); process.exit(0); }, 3000); } else { msg += ' RIAVVIA MeshCentral per attivare la nuova versione.'; }
             session.send({ action: 'plugin', plugin: 'pkgmanager', method: 'pkgUpdateApplied', version: v, backup: parent.path.basename(bakPath), auto: auto, msg: msg });
         } catch (e) { obj.replyCatalog(session, null, 'Aggiornamento plugin fallito: ' + e); }
     };

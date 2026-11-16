@@ -43,5 +43,36 @@ withCapturedTimer(() => obj.pkgAutoRestartCheck());
 cap = withCapturedTimer(() => obj.pkgAutoRestartCheck());
 check('debounce: nessun doppio schedulo', cap === null);
 
+// 5) stand-down: un modulo vecchio left behind da reloadplugin non riavvia
+// (la versione attiva e' quella del modulo nuovo)
+obj.pkgRestartScheduled = false;
+globalThis.__pkgmanagerActiveVersion = '9.9.9'; // il modulo nuovo (9.9.9) e' gia' attivo: il vecchio sta ZONA
+fs.writeFileSync(cfgPath, JSON.stringify({ version: '9.9.9' }));
+cap = withCapturedTimer(() => obj.pkgAutoRestartCheck());
+check('stand-down: modulo vecchio dopo reloadplugin non riavvia', cap === null);
+delete globalThis.__pkgmanagerActiveVersion;
+
+// 6) self-update (pluginInstallUpdate): scrive pkgmanager.js, allinea
+// config.json alla nuova versione e schedula restart via canale launcher
+const vm = require('vm');
+const plugDir = path.join(tmp, 'plugins', 'pkgmanager');
+fs.mkdirSync(plugDir, { recursive: true });
+fs.writeFileSync(path.join(plugDir, 'pkgmanager.js'), 'obj.version = \'0.0.1\';');
+obj.pkgLocalConfigPath = path.join(plugDir, 'config.json');
+fs.writeFileSync(obj.pkgLocalConfigPath, JSON.stringify({ version: '0.0.1', configUrl: 'x' }));
+obj.replyCatalog = () => { };
+let sent = null;
+const newCode = "obj.version = '7.7.7'; // x";
+cap = withCapturedTimer(() => obj.pluginInstallUpdate(newCode, null, { send: (m) => { sent = m; } }));
+const diskCfg = JSON.parse(fs.readFileSync(obj.pkgLocalConfigPath));
+check('self-update: config.json allineato', diskCfg.version === '7.7.7' && diskCfg.configUrl === 'x');
+check('self-update: restart via launcher schedulato a 3s', cap && cap.ms === 3000);
+check('self-update: ack inviato', sent && sent.method === 'pkgUpdateApplied');
+
+// 7) self-update: downgrade rifiutato
+sent = null;
+cap = withCapturedTimer(() => obj.pluginInstallUpdate("obj.version = '1.0.0';", null, { send: (m) => { sent = m; } }));
+check('self-update: downgrade rifiutato (no timer, no ack ok)', cap === null);
+
 console.log(ok ? 'AUTORESTART OK' : 'FALLITO');
 process.exit(ok ? 0 : 1);
