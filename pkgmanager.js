@@ -1,6 +1,10 @@
 /**
  * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
  *
+ *     v2.0.5 SCAN FIX: pkgOsScan silently died since v2.0.2 (pkgD2Pending
+ *     called before allids existed + dead d2runPending reference) — the
+ *     scan button did nothing at all. Regression test: tools/test-client.js.
+ *
  *     v2.0.4 CONFIG-URL INVARIANT GUARD: at startup the plugin force-aligns
  *     its local config.json (and the DB record) to the canonical
  *     self-referencing raw URLs and verifies the remote config.json too,
@@ -258,7 +262,7 @@ module.exports.pkgmanager = function (parent) {
     var childProcess = null; try { childProcess = require('child_process'); } catch (e) { }
     var vmMod = null; try { vmMod = require('vm'); } catch (e) { }
     var obj = {};
-    obj.version = '2.0.4';
+    obj.version = '2.0.5';
     obj.fs = parent.fs;
     obj.path = parent.path;
     obj.catalogPath = parent.path.join(parent.parent.datapath, 'plugins', 'pkgmanager', 'catalog.json');
@@ -1838,13 +1842,12 @@ module.exports.pkgmanager = function (parent) {
                 if (groups[os] == null) { groups[os] = []; }
                 groups[os].push(machs[i2]._id);
             }
-            // v2.0.2: pending PROPRI del plugin (window.pkgmanagerD2), riempito
-            // dall'interceptor su meshserver.onMessage — nessuna dipendenza dal
-            // machinery d2run* del fork (assente sul MeshCentral ufficiale).
-            var rid = pluginHandler.pkgmanager.pkgD2Pending(allids);
             var allids = [];
             for (var g in groups) { allids = allids.concat(groups[g]); }
-            d2runPending[rid] = { nodes: allids.slice(0), results: {} };
+            // v2.0.5 FIX: l'ordine era rotto (pkgD2Pending chiamata PRIMA che
+            // allids esistesse + riga morta su d2runPending, assente
+            // sull'ufficiale) -> pkgOsScan moriva in silenzio nel try/catch.
+            var rid = pluginHandler.pkgmanager.pkgD2Pending(allids);
             window.pkgmanagerOsScan = { rid: rid, started: Date.now(), done: false, machs: {} };
             for (var j2 = 0; j2 < machs.length; j2++) { window.pkgmanagerOsScan.machs[machs[j2]._id] = { name: machs[j2].name, os: pluginHandler.pkgmanager.pkgTargetOs(machs[j2]), info: null, items: [], got: false }; }
             for (var os2 in groups) {

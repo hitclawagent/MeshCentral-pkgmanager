@@ -31,6 +31,8 @@ jobs:
           EOF
       - name: node --check
         run: node --check pkgmanager.js
+      - name: client flow end-to-end (pkgOsScan)
+        run: node tools/test-client.js
       - name: client function extraction smoke test
         run: |
           node - <<'EOF'
