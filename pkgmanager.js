@@ -1,6 +1,11 @@
 /**
  * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
  *
+ *     v2.1.0 STORE MANAGEMENT VIEW: "Gestione aggiornamenti OS" lists the
+ *     downloaded store packages per release (osstorelist) with per-file
+ *     delete, OS filter in the OS view, refresh button; airgap bundle
+ *     import section unchanged.
+ *
  *     v2.0.9 GROUP MACHINE SELECTION + EXPORT BUTTON: checkbox machine
  *     picker per OS group (staged updates: install only the picked machines),
  *     «Esporta downloader…» back in the OS view (airgap flow).
@@ -284,7 +289,7 @@ module.exports.pkgmanager = function (parent) {
     var childProcess = null; try { childProcess = require('child_process'); } catch (e) { }
     var vmMod = null; try { vmMod = require('vm'); } catch (e) { }
     var obj = {};
-    obj.version = '2.0.9';
+    obj.version = '2.1.0';
     obj.fs = parent.fs;
     obj.path = parent.path;
     obj.catalogPath = parent.path.join(parent.parent.datapath, 'plugins', 'pkgmanager', 'catalog.json');
@@ -365,7 +370,7 @@ module.exports.pkgmanager = function (parent) {
     setTimeout(function () { try { obj.ensureBinaries(); } catch (e) { console.log('pkgmanager[server]: ensureBinaries errore: ' + e); } }, 15000);
 
     // ---- Client-side (stringified into the browser) ----
-    obj.exports = ['onWebUIStartupEnd', 'pkgSidebarInject', 'pkgRequestList', 'pkgList', 'pkgCompose', 'pkgTableHtml', 'pkgTargetOs', 'pkgDevToggle', 'pkgDevSelectAll', 'pkgDevOsFilter', 'pkgDevListRender', 'pkgSelectedNodes', 'pkgSidebarOpen', 'pkgSidebarRenderDevices', 'pkgSidebarRender', 'pkgPkgToggle', 'pkgPkgSelectAll', 'pkgPkgSummary', 'pkgBatchRun', 'pkgOsScan', 'pkgOsImportManifest', 'pkgOsExportDownloader', 'pkgOsExportGo', 'pkgDownloaderReady', 'pkgOsScanPoll', 'pkgOsScanParse', 'pkgOsScanRender', 'pkgOsScanExport', 'pkgOsSidebarOpen', 'pkgOsRender', 'pkgOsTable', 'pkgOsKind', 'pkgOsAdminOpen', 'pkgIsOsView', 'pkgInstall', 'pkgRunOn', 'goPageStart', 'pkgMsg', 'pkgTabSetActive', 'pkgAdminOpen', 'pkgAdminRender', 'pkgCreateOpen', 'pkgCreateRender', 'pkgCreateCurOs', 'pkgCreateDefaultType', 'pkgCreateFieldSync', 'pkgCreateDraftSync', 'pkgCreateOsChange', 'pkgCreateOsHint', 'pkgCreateUpload', 'pkgCreateArtifactDel', 'pkgCreatePreset', 'pkgCreateInsert', 'pkgCreateSave', 'pkgCreateCheckId', 'pkgCreateCatalogArrived', 'pkgAdminAdd', 'pkgAdminEdit', 'pkgAdminForm', 'pkgAdminCurOs', 'pkgAdminFieldSync', 'pkgAdminDraftSync', 'pkgAdminOsChange', 'pkgAdminOsHint', 'pkgAdminSave', 'pkgAdminDelete', 'pkgAdminUpload', 'pkgAdminUploadDo', 'pkgAdminArtifactDel', 'pkgAdminStatus', 'pkgAdminRefresh', 'pkgAdminOsFilter', 'pkgBinBanner', 'pkgOsPluginOpen', 'pkgOsPluginRender', 'pkgUpdateOnline', 'pkgUpdateFile', 'pkgUpdateUpload', 'pkgUpdateInfo', 'pkgUpdateApplied', 'pkgDenied', 'pkgD2WrapOnMessage', 'pkgD2Pending', 'pkgD2Receive', 'pkgD2PollSummary', 'pkgOsPlan', 'pkgOsPlanRender', 'pkgOsPlanSelChange', 'pkgOsPlanRequest', 'pkgOsPlanDownload', 'pkgOsPlanInstall', 'pkgOsPlanMachToggle', 'pkgOsPlanMachSelAll'];
+    obj.exports = ['onWebUIStartupEnd', 'pkgSidebarInject', 'pkgRequestList', 'pkgList', 'pkgCompose', 'pkgTableHtml', 'pkgTargetOs', 'pkgDevToggle', 'pkgDevSelectAll', 'pkgDevOsFilter', 'pkgDevListRender', 'pkgSelectedNodes', 'pkgSidebarOpen', 'pkgSidebarRenderDevices', 'pkgSidebarRender', 'pkgPkgToggle', 'pkgPkgSelectAll', 'pkgPkgSummary', 'pkgBatchRun', 'pkgOsScan', 'pkgOsImportManifest', 'pkgOsExportDownloader', 'pkgOsExportGo', 'pkgDownloaderReady', 'pkgOsScanPoll', 'pkgOsScanParse', 'pkgOsScanRender', 'pkgOsScanExport', 'pkgOsSidebarOpen', 'pkgOsRender', 'pkgOsTable', 'pkgOsKind', 'pkgOsAdminOpen', 'pkgIsOsView', 'pkgInstall', 'pkgRunOn', 'goPageStart', 'pkgMsg', 'pkgTabSetActive', 'pkgAdminOpen', 'pkgAdminRender', 'pkgCreateOpen', 'pkgCreateRender', 'pkgCreateCurOs', 'pkgCreateDefaultType', 'pkgCreateFieldSync', 'pkgCreateDraftSync', 'pkgCreateOsChange', 'pkgCreateOsHint', 'pkgCreateUpload', 'pkgCreateArtifactDel', 'pkgCreatePreset', 'pkgCreateInsert', 'pkgCreateSave', 'pkgCreateCheckId', 'pkgCreateCatalogArrived', 'pkgAdminAdd', 'pkgAdminEdit', 'pkgAdminForm', 'pkgAdminCurOs', 'pkgAdminFieldSync', 'pkgAdminDraftSync', 'pkgAdminOsChange', 'pkgAdminOsHint', 'pkgAdminSave', 'pkgAdminDelete', 'pkgAdminUpload', 'pkgAdminUploadDo', 'pkgAdminArtifactDel', 'pkgAdminStatus', 'pkgAdminRefresh', 'pkgAdminOsFilter', 'pkgBinBanner', 'pkgOsPluginOpen', 'pkgOsPluginRender', 'pkgUpdateOnline', 'pkgUpdateFile', 'pkgUpdateUpload', 'pkgUpdateInfo', 'pkgUpdateApplied', 'pkgDenied', 'pkgD2WrapOnMessage', 'pkgD2Pending', 'pkgD2Receive', 'pkgD2PollSummary', 'pkgOsPlan', 'pkgOsPlanRender', 'pkgOsPlanSelChange', 'pkgOsPlanRequest', 'pkgOsPlanDownload', 'pkgOsPlanInstall', 'pkgOsPlanMachToggle', 'pkgOsPlanMachSelAll', 'pkgOsStoreRequest', 'pkgOsStoreList', 'pkgOsStoreSelChange', 'pkgOsStoreDel'];
 
     obj.onWebUIStartupEnd = function () {
         try {
@@ -734,7 +739,36 @@ module.exports.pkgmanager = function (parent) {
             var bo = document.getElementById('LeftMenuOsUpdates');
             if (bo != null) bo.style.opacity = '1';
             pluginHandler.pkgmanager.pkgAdminRender();
+            pluginHandler.pkgmanager.pkgOsStoreRequest(); // v2.1.0
         } catch (e) { console.log('pkgmanager os admin open failed: ' + e); }
+    };
+
+    // v2.1.0: STORE VIEW — elenco, filtro ed eliminazione dei file scaricati
+    // (store/os-updates-<codename>/). Delete: POST /pkgstore.ashx?op=del
+    // (già esistente, admin-only) + refresh lista.
+    obj.pkgOsStoreRequest = function () {
+        try { meshserver.send({ action: 'plugin', plugin: 'pkgmanager', pluginaction: 'osstorelist' }); } catch (e) { }
+    };
+    obj.pkgOsStoreList = function (server, message) {
+        try {
+            if ((message != null) && (message.store != null)) { window.pkgmanagerOsStore = message.store; }
+            if (window.pkgmanagerView == 'osadmin') { pluginHandler.pkgmanager.pkgAdminRender(); }
+        } catch (e) { console.log('pkgmanager osstorelist recv failed: ' + e); }
+    };
+    obj.pkgOsStoreSelChange = function () {
+        try { var s2 = document.getElementById('pkgmanagerOsStoreSel'); if (s2 != null) { window.pkgmanagerOsStoreSel = s2.value; } pluginHandler.pkgmanager.pkgAdminRender(); } catch (e) { }
+    };
+    obj.pkgOsStoreDel = function (dir, file) {
+        try {
+            if (!confirm('Eliminare ' + file + ' dallo store? I bundle che lo referenziano lo segnaleranno come mancante.')) { return; }
+            fetch('/pkgstore.ashx?op=del&p=' + encodeURIComponent(dir + '/' + file), { method: 'POST' })
+                .then(function (r) { return r.json(); })
+                .then(function (j) {
+                    if (j.ok) { pluginHandler.pkgmanager.pkgOsStoreRequest(); window.pkgmanagerAdminMsg = 'File eliminato: ' + file; }
+                    else { pluginHandler.pkgmanager.pkgAdminStatus('Eliminazione negata: ' + EscapeHtml(String(j.error || ''))); }
+                })
+                .catch(function (e2) { pluginHandler.pkgmanager.pkgAdminStatus('Eliminazione fallita: ' + e2); });
+        } catch (e) { }
     };
 
     // v1.6.1: «Importa manifest…» — reads a meshos-fetch manifest.json in the
@@ -1118,17 +1152,49 @@ module.exports.pkgmanager = function (parent) {
             if ((cat == null) || (cat.packages == null)) { m.innerHTML = '<div style="color:#888">Caricamento catalogo…</div>'; return; }
             var isOs = pluginHandler.pkgmanager.pkgIsOsView();
             var x = '<div style="margin-bottom:8px;font-size:16px"><b>' + (isOs ? 'Gestione aggiornamenti OS' : 'Gestione pacchetti') + '</b> — ' + (isOs ? 'bundle OS airgap' : 'catalogo e artefatti airgap') + '</div>' + pluginHandler.pkgmanager.pkgBinBanner();
-            // v1.9.5: filtro OS del catalogo (solo «Gestione pacchetti», non per i bundle OS)
-            if (!isOs) { x += '<div style="margin-bottom:8px">Sistema operativo: <select id="pkgmanagerAdminOsSel" onchange="pluginHandler.pkgmanager.pkgAdminOsFilter()" style="padding:3px 5px"><option value="all">Tutti</option><option value="linux">Linux</option><option value="windows">Windows</option><option value="macos">macOS</option></select> <span id="pkgmanagerAdminOsCount" style="color:#888;font-size:12px"></span></div>'; }
+            // v2.1.0: filtro OS anche in modalità «Gestione aggiornamenti OS»
+            x += '<div style="margin-bottom:8px">Sistema operativo: <select id="pkgmanagerAdminOsSel" onchange="pluginHandler.pkgmanager.pkgAdminOsFilter()" style="padding:3px 5px"><option value="all">Tutti</option><option value="linux">Linux</option><option value="windows">Windows</option><option value="macos">macOS</option></select> <span id="pkgmanagerAdminOsCount" style="color:#888;font-size:12px"></span></div>';
             // v1.9.13: i tasti «Aggiorna plugin» sono spostati nella scheda
             // «Aggiorna plugin» del menu Aggiornamenti OS (pkgOsPluginRender).
-            x += '<div style="margin-bottom:8px">' + (isOs ? '' : '<input type=button value="Aggiungi pacchetto" onclick="pluginHandler.pkgmanager.pkgAdminAdd()"> ') + '<input type=button value="Ricarica catalogo" onclick="pluginHandler.pkgmanager.pkgAdminRefresh()"> ' + (isOs ? '<input type=button value="Importa manifest…" title="Importa un manifest.json generato da meshos-fetch (i file devono essere gia stati copiati nello store del server)" onclick="pluginHandler.pkgmanager.pkgOsImportManifest()">' : '') + '</div>';
+            x += '<div style="margin-bottom:8px">' + (isOs ? '' : '<input type=button value="Aggiungi pacchetto" onclick="pluginHandler.pkgmanager.pkgAdminAdd()"> ') + '<input type=button value="Ricarica catalogo" onclick="pluginHandler.pkgmanager.pkgAdminRefresh()"> ' + (isOs ? '<input type=button value="Ricarica store" onclick="pluginHandler.pkgmanager.pkgOsStoreRequest()" title="Ricarica l elenco dei file scaricati in store/os-updates-*"> <input type=button value="Importa manifest…" title="Importa un manifest.json generato da meshos-fetch (i file devono essere gia stati copiati nello store del server)" onclick="pluginHandler.pkgmanager.pkgOsImportManifest()">' : '') + '</div>';
             if ((window.pkgmanagerAdminMsg != null) && (window.pkgmanagerAdminMsg != '')) { x += '<div style="margin-bottom:8px;color:#080">' + EscapeHtml(window.pkgmanagerAdminMsg) + '</div>'; }
+            // v2.1.0: SEZIONE STORE (solo modalità os) — i pacchetti scaricati
+            // da «Scarica i mancanti» o copiati per airgap, con filtro per
+            // release ed eliminazione SINGOLA.
+            if (isOs) {
+                var storeL = ((window.pkgmanagerOsStore != null) ? (window.pkgmanagerOsStore.store || []) : null);
+                if (storeL == null) { pluginHandler.pkgmanager.pkgOsStoreRequest(); }
+                var totalFiles = 0; if (storeL != null) { for (var sd2 = 0; sd2 < storeL.length; sd2++) { totalFiles += storeL[sd2].files.length; } }
+                x += '<div style="margin-bottom:6px;margin-top:6px"><b>Pacchetti scaricati nello store</b> — <span style="color:#888">' + ((storeL != null) ? (storeL.length + ' release, ' + totalFiles + ' file (store/os-updates-*)') : 'caricamento…') + '</span></div>';
+                if ((storeL != null) && (storeL.length > 0)) {
+                    if (window.pkgmanagerOsStoreSel == null) { window.pkgmanagerOsStoreSel = 'all'; }
+                    x += '<div style="margin-bottom:6px">Release: <select id="pkgmanagerOsStoreSel" onchange="pluginHandler.pkgmanager.pkgOsStoreSelChange()" style="padding:3px 5px">';
+                    x += '<option value="all"' + (window.pkgmanagerOsStoreSel == 'all' ? ' selected' : '') + '>Tutte</option>';
+                    for (var sd3 = 0; sd3 < storeL.length; sd3++) {
+                        var dname = storeL[sd3].dir;
+                        x += '<option value="' + EscapeHtml(dname) + '"' + (window.pkgmanagerOsStoreSel == dname ? ' selected' : '') + '>' + EscapeHtml(dname.slice('os-updates-'.length)) + ' (' + storeL[sd3].files.length + ' file)</option>';
+                    }
+                    x += '</select></div>';
+                    for (var sd4 = 0; sd4 < storeL.length; sd4++) {
+                        var dl = storeL[sd4];
+                        if ((window.pkgmanagerOsStoreSel != 'all') && (window.pkgmanagerOsStoreSel != dl.dir)) { continue; }
+                        x += '<div style="margin-bottom:6px;padding:6px;border:1px solid #ddd;border-radius:4px"><b>' + EscapeHtml(dl.dir.slice('os-updates-'.length)) + '</b> <span style="color:#888;font-size:12px">(' + dl.files.length + ' file — store/' + EscapeHtml(dl.dir) + '/)</span>';
+                        x += '<table style="border-collapse:collapse;width:100%;margin-top:4px">';
+                        x += '<tr style="text-align:left;border-bottom:1px solid #eee"><th style="padding:3px">File</th><th style="padding:3px">Dim.</th><th style="padding:3px"></th></tr>';
+                        for (var fj2 = 0; fj2 < dl.files.length; fj2++) {
+                            var fli = dl.files[fj2];
+                            x += '<tr style="border-bottom:1px solid #f4f4f4"><td style="padding:3px;font-size:12px;word-break:break-all">' + EscapeHtml(fli.file) + '</td><td style="padding:3px;color:#888;font-size:12px">' + Math.round(fli.size / 1024) + 'KB</td><td style="padding:3px"><input type=button value="Elimina" onclick="pluginHandler.pkgmanager.pkgOsStoreDel(\'' + EscapeHtml(dl.dir) + '\',\'' + EscapeHtml(fli.file) + '\')"></td></tr>';
+                        }
+                        x += '</table></div>';
+                    }
+                }
+            }
+            x += '<div style="margin-bottom:6px;margin-top:10px"><b>' + (isOs ? 'Bundle OS (manifest airgap importati)' : 'Catalogo pacchetti') + '</b></div>';
             x += '<table style="border-collapse:collapse;width:100%">';
             x += '<tr style="text-align:left;border-bottom:1px solid #ccc"><th style="padding:4px">Pacchetto</th><th style="padding:4px">Definizioni OS / artefatto</th><th style="padding:4px">Azioni</th></tr>';
             var oses = ['linux', 'windows', 'macos'];
             // v1.9.5: filtro OS (stato, non DOM: al primo render la select non esiste ancora)
-            var af = (isOs || (window.pkgmanagerAdminOsVal == null)) ? 'all' : String(window.pkgmanagerAdminOsVal);
+            var af = (window.pkgmanagerAdminOsVal == null) ? 'all' : String(window.pkgmanagerAdminOsVal); // v2.1.0: filtro anche in modalità os
             var aShown = 0, aTotal = 0;
             for (var i = 0; i < cat.packages.length; i++) {
                 var p = cat.packages[i];
@@ -3303,6 +3369,32 @@ log('prossimo passo: copia ' + OUT_DIR + '/ nello store del server (My Files -> 
                     try { obj.replyCatalog(session, null, 'Download aggiornamenti fallito: ' + err + ' — se il server e airgap usa «Esporta downloader…» nella vista Aggiornamenti OS.'); } catch (e3) { }
                 }
             })();
+            return;
+        }
+
+        // v2.1.0: «osstorelist» — elenco dei file SCARICATI nello store
+        // (store/os-updates-<codename>/) per la scheda Gestione aggiornamenti
+        // OS: visibilita' dei singoli pacchetti + eliminazione manuale.
+        if (command.pluginaction == 'osstorelist') {
+            var outStore = [];
+            try {
+                var storeDirs = parent.fs.readdirSync(obj.storePath);
+                for (var sdi = 0; sdi < storeDirs.length; sdi++) {
+                    if (storeDirs[sdi].indexOf('os-updates-') !== 0) { continue; }
+                    var dirPath = parent.path.join(obj.storePath, storeDirs[sdi]);
+                    var st0 = null; try { st0 = parent.fs.statSync(dirPath); } catch (e) { }
+                    if ((st0 == null) || !st0.isDirectory()) { continue; }
+                    var fls = parent.fs.readdirSync(dirPath);
+                    var filesL = [];
+                    for (var fj = 0; fj < fls.length; fj++) {
+                        var st1 = null; try { st1 = parent.fs.statSync(parent.path.join(dirPath, fls[fj])); } catch (e2) { }
+                        if ((st1 != null) && st1.isFile()) { filesL.push({ file: fls[fj], size: st1.size, mtime: st1.mtimeMs }); }
+                    }
+                    filesL.sort(function (a, b) { return (a.file < b.file ? -1 : (a.file > b.file ? 1 : 0)); });
+                    outStore.push({ dir: storeDirs[sdi], files: filesL });
+                }
+            } catch (e3) { }
+            try { session.send({ action: 'plugin', plugin: 'pkgmanager', method: 'pkgOsStoreList', store: outStore }); } catch (e4) { }
             return;
         }
 
