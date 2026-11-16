@@ -2,8 +2,10 @@
 
 A [MeshCentral](https://github.com/Ylianst/MeshCentral) plugin for **remote package installation** on Windows, Linux and macOS agents. Catalog-driven, with **airgap installs** (devices never touch the internet: artifacts are downloaded from the MeshCentral server itself over the LAN).
 
-Current version: **2.1.3** — requires MeshCentral **1.3.1**
+Current version: **2.1.4** — requires MeshCentral **1.3.1**
 
+> **2.1.4**: pure-JS Debian version comparator (`verDebCmp`) — the plan no longer depends on dpkg being installed on the MeshCentral server. The old string fallback compared "4.10" < "4.9" and caused phantom updates + reinstall loops (xxd case). Validated against dpkg on critical cases and 141 real versions (tools/test-vercmp.js, in CI).
+>
 > **2.1.3**: ghost-package fix — the Linux inventory now reads ONLY actually-installed packages (`dpkg-query ${db:Status-Abbrev}` filtered to `ii/hi` states): removed-but-not-purged packages no longer appear as "updates available" (they made the plan reinstall them; classic loop with xxd/vim). Plan header shows the scan timestamp as staleness hint.
 >
 > **2.1.2**: plan transparency — each package in the OS-update plan shows the REASON (plain update vs NEW dependency pulled in by an updated package); the count can legitimately exceed `apt upgrade` (which doesn't count new dependencies). The scan also detects inconsistent dpkg state (`dpkg --audit`) and warns on machines with unsatisfied dependencies (e.g. after an interrupted upgrade) — those machines need `apt --fix-broken install` or a plan install.

@@ -1,6 +1,11 @@
 /**
  * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
  *
+ *     v2.1.4 VERSION COMPARATOR: verDebCmp — full dpkg version algorithm
+ *     (epoch, ~ ordering, digit runs) in pure JS; the OS plan no longer
+ *     depends on the server having dpkg (string fallback compared
+ *     "4.10" < "4.9" -> phantom updates + reinstall loop).
+ *
  *     v2.1.3 GHOST-PACKAGE FIX: Linux inventory = only actually-installed
  *     packages (dpkg-query Status-Abbrev filtered to installed states) —
  *     removed-but-not-purged ghosts no longer trigger phantom updates;
