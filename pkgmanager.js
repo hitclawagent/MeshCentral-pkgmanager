@@ -1,5 +1,10 @@
 /**
- * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.2.
+ * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
+ *
+ *     v2.0.3 UPDATE SOURCE REPOINT: updateSrcUrl (self-update check) and
+ *     binariesUrl (downloader binaries auto-install) still pointed at the
+ *     archived fork branch (v2.0.0) — the update check always reported the
+ *     plugin as current. Both now point at this repo's main/release.
  *
  *     v2.0.2 SELF-CONTAINED REPLY PLUMBING: the OS-update scanner and the
  *     batch/single installs depended on the d2run* machinery (d2runBegin/
@@ -247,14 +252,14 @@ module.exports.pkgmanager = function (parent) {
     var childProcess = null; try { childProcess = require('child_process'); } catch (e) { }
     var vmMod = null; try { vmMod = require('vm'); } catch (e) { }
     var obj = {};
-    obj.version = '2.0.2';
+    obj.version = '2.0.3';
     obj.fs = parent.fs;
     obj.path = parent.path;
     obj.catalogPath = parent.path.join(parent.parent.datapath, 'plugins', 'pkgmanager', 'catalog.json');
     // v1.9.6: sorgente di aggiornamento del plugin (online); sovrascrivibile
     // da settings.plugins.pkgmanagerUpdateUrl. Il file caricato via airgap
     // atterra su .update-pending.js nella stessa cartella.
-    obj.updateSrcUrl = 'https://raw.githubusercontent.com/hitclawagent/MeshCentral/feature/pkgmanager-plugin/plugins/pkgmanager/pkgmanager.js';
+    obj.updateSrcUrl = 'https://raw.githubusercontent.com/hitclawagent/MeshCentral-pkgmanager/main/pkgmanager.js';
     try { var _pu = parent.parent.config.settings.plugins; if ((_pu != null) && (_pu.pkgmanagerUpdateUrl != null)) { obj.updateSrcUrl = String(_pu.pkgmanagerUpdateUrl); } } catch (e) { }
     obj.updatePendingPath = parent.path.join(parent.path.dirname(obj.catalogPath), '.update-pending.js');
 
@@ -264,7 +269,7 @@ module.exports.pkgmanager = function (parent) {
     // l'avvio il plugin scarica lo zip completo dalla release e estrae
     // pkgmanager/bin/* con unzip (niente toolchain Go sul target).
     obj.downloaderPlatforms = ['linux-x64', 'linux-arm64', 'linux-arm', 'win-x64', 'win-x86', 'macos-x64', 'macos-arm64'];
-    obj.binariesUrl = 'https://github.com/hitclawagent/MeshCentral/releases/download/v1.9.8/pkgmanager-full-1.9.8.zip';
+    obj.binariesUrl = 'https://github.com/hitclawagent/MeshCentral-pkgmanager/releases/download/v2.0.2/pkgmanager-full-2.0.2.zip';
     try { var _pbin = parent.parent.config.settings.plugins; if ((_pbin != null) && (_pbin.pkgmanagerBinariesUrl != null)) { obj.binariesUrl = String(_pbin.pkgmanagerBinariesUrl); } } catch (e) { }
     obj.binDir = parent.path.join(parent.parent.datapath, 'plugins', 'pkgmanager', 'bin');
     obj.binariesMissing = function () {

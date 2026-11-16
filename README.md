@@ -2,8 +2,10 @@
 
 A [MeshCentral](https://github.com/Ylianst/MeshCentral) plugin for **remote package installation** on Windows, Linux and macOS agents. Catalog-driven, with **airgap installs** (devices never touch the internet: artifacts are downloaded from the MeshCentral server itself over the LAN).
 
-Current version: **2.0.2** — requires MeshCentral **1.3.1**
+Current version: **2.0.3** — requires MeshCentral **1.3.1**
 
+> **2.0.3**: update-source repoint — `updateSrcUrl` (self-update check) and `binariesUrl` (downloader binaries auto-install) now point at this repo (they still referenced the archived fork branch, so the update check always said the plugin was current).
+>
 > **2.0.2**: self-contained runcommands reply plumbing — the OS-update scanner and installs no longer depend on the `d2run*` patch of the forked UI. On an official MeshCentral the scan previously stayed "waiting" forever (nothing collected the replies); the plugin now wraps `meshserver.onMessage` once and collects its own replies (`window.pkgmanagerD2`). On the forked UI both mechanisms coexist.
 >
 > **2.0.1**: OS classification fix — machines are classified by agent type (`node.agent.id`) before the `os_title` text fallback, so Windows machines without populated OS info are no longer mistaken for Linux.
