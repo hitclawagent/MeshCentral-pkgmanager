@@ -1,6 +1,9 @@
 /**
  * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
  *
+ *     v2.1.1 LEGACY STORE DIR: osstorelist also lists 'os-updates'
+ *     (pre-2.0.7 downloads, no codename suffix) — previously invisible.
+ *
  *     v2.1.0 STORE MANAGEMENT VIEW: "Gestione aggiornamenti OS" lists the
  *     downloaded store packages per release (osstorelist) with per-file
  *     delete, OS filter in the OS view, refresh button; airgap bundle
@@ -289,7 +292,7 @@ module.exports.pkgmanager = function (parent) {
     var childProcess = null; try { childProcess = require('child_process'); } catch (e) { }
     var vmMod = null; try { vmMod = require('vm'); } catch (e) { }
     var obj = {};
-    obj.version = '2.1.0';
+    obj.version = '2.1.1';
     obj.fs = parent.fs;
     obj.path = parent.path;
     obj.catalogPath = parent.path.join(parent.parent.datapath, 'plugins', 'pkgmanager', 'catalog.json');
@@ -3380,7 +3383,10 @@ log('prossimo passo: copia ' + OUT_DIR + '/ nello store del server (My Files -> 
             try {
                 var storeDirs = parent.fs.readdirSync(obj.storePath);
                 for (var sdi = 0; sdi < storeDirs.length; sdi++) {
-                    if (storeDirs[sdi].indexOf('os-updates-') !== 0) { continue; }
+                    // v2.1.1: include anche la LEGACY 'os-updates' (download
+                    // pre-2.0.7, senza suffisso codename) — i suoi file erano
+                    // invisibili nella scheda.
+                    if ((storeDirs[sdi] !== 'os-updates') && (storeDirs[sdi].indexOf('os-updates-') !== 0)) { continue; }
                     var dirPath = parent.path.join(obj.storePath, storeDirs[sdi]);
                     var st0 = null; try { st0 = parent.fs.statSync(dirPath); } catch (e) { }
                     if ((st0 == null) || !st0.isDirectory()) { continue; }
