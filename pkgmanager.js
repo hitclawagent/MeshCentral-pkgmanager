@@ -1,6 +1,12 @@
 /**
  * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
  *
+ *     v2.0.6 SCAN INFO FIXES: Windows version column shows the real
+ *     release (registry DisplayVersion) instead of the Windows API version
+ *     (10.0.x even on Windows 11); Linux os-release values are
+ *     quote-stripped (VERSION_ID arrives quoted, codename goes into the
+ *     vendor repo URLs).
+ *
  *     v2.0.5 SCAN FIX: pkgOsScan silently died since v2.0.2 (pkgD2Pending
  *     called before allids existed + dead d2runPending reference) — the
  *     scan button did nothing at all. Regression test: tools/test-client.js.
@@ -262,7 +268,7 @@ module.exports.pkgmanager = function (parent) {
     var childProcess = null; try { childProcess = require('child_process'); } catch (e) { }
     var vmMod = null; try { vmMod = require('vm'); } catch (e) { }
     var obj = {};
-    obj.version = '2.0.5';
+    obj.version = '2.0.6';
     obj.fs = parent.fs;
     obj.path = parent.path;
     obj.catalogPath = parent.path.join(parent.parent.datapath, 'plugins', 'pkgmanager', 'catalog.json');
@@ -1854,10 +1860,16 @@ module.exports.pkgmanager = function (parent) {
                 var cmd = null, type = 3;
                 if (os2 == 'linux') {
                     type = 3;
-                    cmd = 'printf "__osinfo:%s|%s|%s\\n" "$(grep ^NAME= /etc/os-release | cut -d= -f2)" "$(grep ^VERSION_ID= /etc/os-release | cut -d= -f2)" "$(grep ^VERSION_CODENAME= /etc/os-release | cut -d= -f2)" ; dpkg-query -W -f=\'${Package} ${Version}\\n\' 2>/dev/null';
+                    // v2.0.6: tr -d '"' — VERSION_ID su Ubuntu arriva QUOTATO
+                    // ("26.04"); il codename finisce nell URL dei repo vendor.
+                    cmd = 'printf "__osinfo:%s|%s|%s\\n" "$(grep ^NAME= /etc/os-release | cut -d= -f2 | tr -d \'"\')" "$(grep ^VERSION_ID= /etc/os-release | cut -d= -f2 | tr -d \'"\')" "$(grep ^VERSION_CODENAME= /etc/os-release | cut -d= -f2 | tr -d \'"\')" ; dpkg-query -W -f=\'${Package} ${Version}\\n\' 2>/dev/null';
                 } else if (os2 == 'windows') {
                     type = 2;
-                    cmd = 'Write-Output "__osinfo:$((Get-CimInstance Win32_OperatingSystem).Caption)|$((Get-CimInstance Win32_OperatingSystem).Version)"; Get-HotFix | ForEach-Object { Write-Output "$($_.HotFixID) $($_.Description)" }';
+                    // v2.0.6: la colonna Versione mostrava la versione API di
+                    // Windows (10.0.x ANCHE su Windows 11 — comportamento
+                    // noto): usa la release REALE dal registry (DisplayVersion,
+                    // es. 25H2) con il build tra parentesi.
+                    cmd = '$c = Get-CimInstance Win32_OperatingSystem; $r = Get-ItemProperty \'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\'; $dv = $r.DisplayVersion; if ($dv -eq $null) { $dv = $r.ReleaseId }; Write-Output "__osinfo:$($c.Caption)|$dv ($($c.Version))"; Get-HotFix | ForEach-Object { Write-Output "$($_.HotFixID) $($_.Description)" }';
                 } else {
                     type = 3;
                     cmd = 'echo "__osinfo:$(sw_vers -productName)|$(sw_vers -productVersion)|$(sw_vers -buildVersion)" ; softwareupdate --history 2>/dev/null | tail -30';

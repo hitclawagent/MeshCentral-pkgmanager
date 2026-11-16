@@ -2,8 +2,10 @@
 
 A [MeshCentral](https://github.com/Ylianst/MeshCentral) plugin for **remote package installation** on Windows, Linux and macOS agents. Catalog-driven, with **airgap installs** (devices never touch the internet: artifacts are downloaded from the MeshCentral server itself over the LAN).
 
-Current version: **2.0.5** — requires MeshCentral **1.3.1**
+Current version: **2.0.6** — requires MeshCentral **1.3.1**
 
+> **2.0.6**: scan info fixes — Windows version column now shows the REAL release from the registry (DisplayVersion, e.g. "25H2 (10.0.26300)"; the old column showed the Windows API version "10.0.x" even on Windows 11) and Linux os-release values are quote-stripped (VERSION_ID arrives quoted, e.g. "26.04"; the codename is used verbatim in the vendor repo URLs).
+>
 > **2.0.5**: scan fix — pkgOsScan crashed silently since v2.0.2 (pkgD2Pending called before the node list existed, plus a dead reference to the fork-only d2runPending): the "Scansiona macchine" button did nothing on official MeshCentral. Regression covered by tools/test-client.js (end-to-end client simulation, also run in CI).
 >
 > **2.0.4**: crash-proof guard — at every server startup the plugin forces its local config.json (and the DB record) to the canonical self-referencing URLs and verifies the REMOTE config.json is self-referencing, logging a loud error if a bad release ever breaks the invariant again (the invariant violation is what crash-looped Node 24 when opening the plugins screen).
