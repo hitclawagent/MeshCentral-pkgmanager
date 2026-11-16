@@ -2,8 +2,10 @@
 
 A [MeshCentral](https://github.com/Ylianst/MeshCentral) plugin for **remote package installation** on Windows, Linux and macOS agents. Catalog-driven, with **airgap installs** (devices never touch the internet: artifacts are downloaded from the MeshCentral server itself over the LAN).
 
-Current version: **2.1.1** — requires MeshCentral **1.3.1**
+Current version: **2.1.2** — requires MeshCentral **1.3.1**
 
+> **2.1.2**: plan transparency — each package in the OS-update plan shows the REASON (plain update vs NEW dependency pulled in by an updated package); the count can legitimately exceed `apt upgrade` (which doesn't count new dependencies). The scan also detects inconsistent dpkg state (`dpkg --audit`) and warns on machines with unsatisfied dependencies (e.g. after an interrupted upgrade) — those machines need `apt --fix-broken install` or a plan install.
+>
 > **2.1.1**: the store listing now includes the LEGACY `os-updates` folder (downloads made before v2.0.7 had no codename suffix) — those files were invisible in "Gestione aggiornamenti OS".
 >
 > **2.1.0**: "Gestione aggiornamenti OS" completed — the store packages downloaded by «Scarica i mancanti» (or copied for airgap) are now LISTED per release (`os-updates-<codename>`) with per-file **delete**; OS filter available in this view too; «Ricarica store» button; the imported airgap bundles section is unchanged.

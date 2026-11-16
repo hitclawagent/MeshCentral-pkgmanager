@@ -1,6 +1,12 @@
 /**
  * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
  *
+ *     v2.1.2 PLAN REASONS + BROKEN-STATE DETECTION: the OS-update plan shows
+ *     WHY each package is there (update vs new dependency of an updated
+ *     package — explains count differences vs apt upgrade); the Linux scan
+ *     also runs dpkg --audit and warns about machines with unsatisfied
+ *     dependencies.
+ *
  *     v2.1.1 LEGACY STORE DIR: osstorelist also lists 'os-updates'
  *     (pre-2.0.7 downloads, no codename suffix) — previously invisible.
  *
@@ -292,7 +298,7 @@ module.exports.pkgmanager = function (parent) {
     var childProcess = null; try { childProcess = require('child_process'); } catch (e) { }
     var vmMod = null; try { vmMod = require('vm'); } catch (e) { }
     var obj = {};
-    obj.version = '2.1.1';
+    obj.version = '2.1.2';
     obj.fs = parent.fs;
     obj.path = parent.path;
     obj.catalogPath = parent.path.join(parent.parent.datapath, 'plugins', 'pkgmanager', 'catalog.json');
@@ -1967,6 +1973,20 @@ module.exports.pkgmanager = function (parent) {
                 x += '<option value="' + EscapeHtml(keys[i]) + '"' + (keys[i] == window.pkgmanagerOsPlanSel ? ' selected' : '') + '>' + EscapeHtml(label) + '</option>';
             }
             x += '</select> <span style="color:#888;font-size:12px">' + ((grp.os == 'linux') ? (grp.updates.length + ' aggiornamenti nel piano — ' + grp.machNames.join(', ')) : 'mancanti non deducibili dalla scansione (best effort)') + '</span></div>';
+            // v2.1.2: macchine con stato dpkg incoerente (dpkg --audit non vuoto)
+            var broken = [];
+            try {
+                var runS = window.pkgmanagerOsScan;
+                if ((runS != null) && (runS.machs != null)) {
+                    for (var nidB in runS.machs) {
+                        var mmB = runS.machs[nidB];
+                        if ((mmB.audit != null) && (mmB.audit.length > 0) && (grp.machines[nidB] != null)) { broken.push(grp.machines[nidB]); }
+                    }
+                }
+            } catch (eB) { }
+            if (broken.length > 0) {
+                x += '<div style="margin-bottom:6px;padding:6px;border:1px solid #d80;border-radius:4px;background:#fff8ee"><span style="color:#a60"><b>⚠ Stato dpkg incoerente</b> su: ' + EscapeHtml(broken.join(', ')) + '</span> — ci sono dipendenze insoddisfatte (dpkg --audit non vuoto). Il piano potrebbe non elencarle tutte: esegui <code>sudo apt --fix-broken install</code> sulla macchina, o installa comunque il piano (porta anche le dipendenze mancanti).</div>';
+            }
             if (grp.os != 'linux') {
                 x += '<div style="color:#888;padding:6px">Per ' + EscapeHtml(grp.distro) + ' i mancanti non sono deducibili dalla sola scansione: usa «Esporta downloader…» (meshos-fetch --kb per Windows, --macos per macOS). L\'inventario KB/aggiornamenti e\' nella tabella di scansione qui sotto.</div>';
                 w.innerHTML = x; return;
@@ -1990,15 +2010,16 @@ module.exports.pkgmanager = function (parent) {
             }
             x += '</div>';
             x += '<table style="border-collapse:collapse;width:100%">';
-            x += '<tr style="text-align:left;border-bottom:1px solid #ccc"><th style="padding:4px">Pacchetto</th><th style="padding:4px">Installata (min nel gruppo)</th><th style="padding:4px">Disponibile</th><th style="padding:4px">Dim.</th><th style="padding:4px">Sul server</th></tr>';
+            x += '<tr style="text-align:left;border-bottom:1px solid #ccc"><th style="padding:4px">Pacchetto</th><th style="padding:4px">Installata (min nel gruppo)</th><th style="padding:4px">Disponibile</th><th style="padding:4px">Dim.</th><th style="padding:4px">Sul server</th><th style="padding:4px">Motivo</th></tr>';
             for (var u = 0; u < grp.updates.length; u++) {
                 var up = grp.updates[u];
                 var st = (up.inStore === true) ? '<span style="color:#080">✓ disponibile</span>' : '<span style="color:#a60">✗ mancante</span>';
                 if (up.inStore !== true) { nMiss++; }
-                x += '<tr style="border-bottom:1px solid #eee"><td style="padding:4px">' + EscapeHtml(up.package) + '</td><td style="padding:4px;color:#888">' + EscapeHtml(up.installed || '—') + '</td><td style="padding:4px">' + EscapeHtml(up.version) + '</td><td style="padding:4px;color:#888">' + Math.round((up.size || 0) / 1024) + 'KB</td><td style="padding:4px">' + st + '</td></tr>';
+                var motivo = ((up.reason != null) && (up.reason != '')) ? up.reason : 'aggiornamento disponibile';
+                x += '<tr style="border-bottom:1px solid #eee"><td style="padding:4px">' + EscapeHtml(up.package) + '</td><td style="padding:4px;color:#888">' + EscapeHtml(up.installed || '—') + '</td><td style="padding:4px">' + EscapeHtml(up.version) + '</td><td style="padding:4px;color:#888">' + Math.round((up.size || 0) / 1024) + 'KB</td><td style="padding:4px">' + st + '</td><td style="padding:4px;color:#888;font-size:12px">' + EscapeHtml(motivo) + '</td></tr>';
             }
             x += '</table>';
-            x += '<div style="margin-top:4px;color:#888;font-size:12px">' + (grp.updates.length - nMiss) + ' già nello store · ' + nMiss + ' mancanti — «Scarica i mancanti sul server» li recupera dai repo vendor; «Installa aggiornamenti» porta le macchine del gruppo alla stessa versione (la più recente).</div>';
+            x += '<div style="margin-top:4px;color:#888;font-size:12px">' + (grp.updates.length - nMiss) + ' già nello store · ' + nMiss + ' mancanti — «Scarica i mancanti sul server» li recupera dai repo vendor; «Installa aggiornamenti» porta le macchine del gruppo alla stessa versione (la più recente). Nota: il conteggio può superare quello di <code>apt upgrade</code> perché include anche le NUOVE dipendenze richieste dalle versioni aggiornate (colonna Motivo).</div>';
             w.innerHTML = x;
         } catch (e) { console.log('pkgmanager osplan render failed: ' + e); }
     };
@@ -2091,7 +2112,7 @@ module.exports.pkgmanager = function (parent) {
                     type = 3;
                     // v2.0.6: tr -d '"' — VERSION_ID su Ubuntu arriva QUOTATO
                     // ("26.04"); il codename finisce nell URL dei repo vendor.
-                    cmd = 'printf "__osinfo:%s|%s|%s\\n" "$(grep ^NAME= /etc/os-release | cut -d= -f2 | tr -d \'"\')" "$(grep ^VERSION_ID= /etc/os-release | cut -d= -f2 | tr -d \'"\')" "$(grep ^VERSION_CODENAME= /etc/os-release | cut -d= -f2 | tr -d \'"\')" ; dpkg-query -W -f=\'${Package} ${Version}\\n\' 2>/dev/null';
+                    cmd = 'printf "__osinfo:%s|%s|%s\\n" "$(grep ^NAME= /etc/os-release | cut -d= -f2 | tr -d \'"\')" "$(grep ^VERSION_ID= /etc/os-release | cut -d= -f2 | tr -d \'"\')" "$(grep ^VERSION_CODENAME= /etc/os-release | cut -d= -f2 | tr -d \'"\')" ; dpkg-query -W -f=\'${Package} ${Version}\\n\' 2>/dev/null ; echo \'__audit:start\' ; dpkg --audit 2>/dev/null | sed -n \'1,50p\'';
                 } else if (os2 == 'windows') {
                     type = 2;
                     // v2.0.6: la colonna Versione mostrava la versione API di
@@ -2114,12 +2135,15 @@ module.exports.pkgmanager = function (parent) {
     // Parse ONE machine's raw inventory: first "__osinfo:a|b|c" line, then
     // one "name rest..." item per line (dpkg / KB / history rows).
     obj.pkgOsScanParse = function (raw) {
-        var out = { info: null, items: [] };
+        var out = { info: null, items: [], audit: null };
+        var auditMode = false;
         try {
             var lines = String(raw || '').split(/\r?\n/);
             for (var i = 0; i < lines.length; i++) {
                 var t = lines[i].trim();
                 if (t == '') { continue; }
+                if (t.indexOf('__audit:start') === 0) { auditMode = true; continue; } // v2.1.2
+                if (auditMode) { if (out.audit == null) { out.audit = []; } out.audit.push(t); continue; }
                 if ((out.info == null) && (t.indexOf('__osinfo:') === 0)) {
                     out.info = t.slice(9).split('|');
                     continue;
@@ -2145,6 +2169,7 @@ module.exports.pkgmanager = function (parent) {
                     var parsed = pluginHandler.pkgmanager.pkgOsScanParse(r);
                     run.machs[nid].info = parsed.info;
                     run.machs[nid].items = parsed.items;
+                    run.machs[nid].audit = parsed.audit; // v2.1.2
                     run.machs[nid].got = true;
                 }
             }
