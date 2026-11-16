@@ -17,7 +17,7 @@ Current version: **2.0.3** — requires MeshCentral **1.3.1**
 **My Server → Plugins → Add/Install**, paste this URL (same format as the official plugins: the URL of the raw `config.json`):
 
 ```
-https://raw.githubusercontent.com/hitclawagent/MeshCentral-pkgmanager/main/config.json
+https://github.com/hitclawagent/MeshCentral-pkgmanager/releases/latest/download/config.json
 ```
 
 MeshCentral fetches the config, reads `downloadUrl` and installs the plugin (`pkgmanager.js`). Restart the server afterwards (or accept the restart prompt).
@@ -28,7 +28,7 @@ MeshCentral fetches the config, reads `downloadUrl` and installs the plugin (`pk
 > ```bash
 > # On the MeshCentral server machine
 > mkdir -p /tmp/pkginstall && cd /tmp/pkginstall
-> curl -sLO https://raw.githubusercontent.com/hitclawagent/MeshCentral-pkgmanager/main/config.json
+> curl -sLO https://github.com/hitclawagent/MeshCentral-pkgmanager/releases/latest/download/config.json
 > curl -sLO https://raw.githubusercontent.com/hitclawagent/MeshCentral-pkgmanager/main/pkgmanager-code-latest.zip
 > python3 -m http.server 8077 &
 > ```
