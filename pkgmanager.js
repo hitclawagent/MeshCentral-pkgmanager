@@ -1,6 +1,11 @@
 /**
  * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
  *
+ *     v2.2.13 MISSING ROW CLOSE: the flex row wrapping Macchine/Pacchetti
+ *     was never closed, so Riassunto and the message div became flex
+ *     children (summary showed up on the left). Row is closed now; a
+ *     div-balance check guards the view markup.
+ *
  *     v2.2.12 EXACT GRID: left = Macchine full-height column (600px);
  *     right column split in half — top Pacchetti rilevati (300px), bottom
  *     Avanzamento download fills the remainder (flex:1); Riassunto full
@@ -466,7 +471,7 @@ module.exports.pkgmanager = function (parent) {
     var childProcess = null; try { childProcess = require('child_process'); } catch (e) { }
     var vmMod = null; try { vmMod = require('vm'); } catch (e) { }
     var obj = {};
-    obj.version = '2.2.12';
+    obj.version = '2.2.13';
         globalThis.__pkgmanagerActiveVersion = obj.version; // v2.1.7: versione ATTIVA (il vecchio modulo in cache dopo un install resta a ZONA, il reloadplugin la aggiorna)
     obj.fs = parent.fs;
     obj.path = parent.path;
@@ -2395,6 +2400,7 @@ module.exports.pkgmanager = function (parent) {
             x += '<div style="border:1px solid #ddd;border-radius:6px;display:flex;flex-direction:column;height:300px">' + secHead('Pacchetti rilevati', 'pkgmanagerOsPkgsSummary') + '<div id="pkgmanagerOsPkgs" style="font-size:12px;flex:1;overflow:auto"></div><div id="pkgmanagerOsPkgsActions" style="padding:6px 10px"></div></div>';
             x += '<div style="border:1px solid #ddd;border-radius:6px;display:flex;flex-direction:column;flex:1">' + secHead('Avanzamento download') + '<div id="pkgmanagerOsFetchProg" style="font-size:12px;flex:1;overflow:auto"></div></div>';
             x += '</div>';
+            x += '</div>'; // v2.2.13: CHIUSURA della riga flex (mancava: Riassunto diventava un figlio della riga e finiva a sinistra)
             x += '<div style="border:1px solid #ddd;border-radius:6px;margin-bottom:10px">' + secHead('Riassunto mancanti') + '<div id="pkgmanagerOsSummary" style="font-size:12px;height:280px;overflow:auto"></div></div>';
             x += '<div id="pkgmanagerMsg" style="margin-top:10px;color:#888"></div>';
             m.innerHTML = x;

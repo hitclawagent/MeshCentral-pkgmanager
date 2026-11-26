@@ -2,8 +2,10 @@
 
 A [MeshCentral](https://github.com/Ylianst/MeshCentral) plugin for **remote package installation** on Windows, Linux and macOS agents. Catalog-driven, with **airgap installs** (devices never touch the internet: artifacts are downloaded from the MeshCentral server itself over the LAN).
 
-Current version: **2.2.12** — requires MeshCentral **1.3.1**
+Current version: **2.2.13** — requires MeshCentral **1.3.1**
 
+> **2.2.13**: the flex row wrapping Macchine/Pacchetti was never closed — Riassunto and the message div became flex children (the summary showed up on the left). Row closed properly; div-balance check added to the test.
+>
 > **2.2.12**: exact grid — left column «Macchine scansionate» full height (600px); right column split in two halves: top «Pacchetti rilevati» (300px) and «Avanzamento download» beneath it filling the remaining half; «Riassunto mancanti» underneath everything, full page width.
 >
 > **2.2.11**: the "Piano aggiornamenti" section is removed — the unified «Pacchetti rilevati» pane and the «Riassunto mancanti» replace it; the OS group selector stays on top and the dpkg-audit warning moved into the summary. Install actions keep working off the plan data.
