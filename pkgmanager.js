@@ -1,6 +1,13 @@
 /**
  * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
  *
+ *     v2.1.9 AGENT BINARY PANEL: serveraction "agentbuildinfo" (admin-only)
+ *     surfaces parent.parent.agentDefaults.status() — the core tracks every
+ *     default agent file with status/received/size — plus a disk scan of
+ *     agentbuilds/ (verified cache) and agents/ (overrides). The plugin tab
+ *     renders it with progress bars and auto-refreshes while anything is
+ *     downloading. Graceful on cores without agentDefaults (core=null).
+ *
  *     v2.1.8 RESTART BUTTON: admin-only "Riavvia server" button in the
  *     plugin view (serverrestart serveraction) — schedules a clean
  *     launcher-channel restart in 2s.
@@ -373,7 +380,7 @@ module.exports.pkgmanager = function (parent) {
     var childProcess = null; try { childProcess = require('child_process'); } catch (e) { }
     var vmMod = null; try { vmMod = require('vm'); } catch (e) { }
     var obj = {};
-    obj.version = '2.1.8';
+    obj.version = '2.1.9';
         globalThis.__pkgmanagerActiveVersion = obj.version; // v2.1.7: versione ATTIVA (il vecchio modulo in cache dopo un install resta a ZONA, il reloadplugin la aggiorna)
     obj.fs = parent.fs;
     obj.path = parent.path;
@@ -455,7 +462,7 @@ module.exports.pkgmanager = function (parent) {
     setTimeout(function () { try { obj.ensureBinaries(); } catch (e) { console.log('pkgmanager[server]: ensureBinaries errore: ' + e); } }, 15000);
 
     // ---- Client-side (stringified into the browser) ----
-    obj.exports = ['onWebUIStartupEnd', 'pkgSidebarInject', 'pkgRequestList', 'pkgList', 'pkgCompose', 'pkgTableHtml', 'pkgTargetOs', 'pkgDevToggle', 'pkgDevSelectAll', 'pkgDevOsFilter', 'pkgDevListRender', 'pkgSelectedNodes', 'pkgSidebarOpen', 'pkgSidebarRenderDevices', 'pkgSidebarRender', 'pkgPkgToggle', 'pkgPkgSelectAll', 'pkgPkgSummary', 'pkgBatchRun', 'pkgOsScan', 'pkgOsImportManifest', 'pkgOsExportDownloader', 'pkgOsExportGo', 'pkgDownloaderReady', 'pkgOsScanPoll', 'pkgOsScanParse', 'pkgOsScanRender', 'pkgOsScanExport', 'pkgOsSidebarOpen', 'pkgOsRender', 'pkgOsTable', 'pkgOsKind', 'pkgOsAdminOpen', 'pkgIsOsView', 'pkgInstall', 'pkgRunOn', 'goPageStart', 'pkgMsg', 'pkgTabSetActive', 'pkgAdminOpen', 'pkgAdminRender', 'pkgCreateOpen', 'pkgCreateRender', 'pkgCreateCurOs', 'pkgCreateDefaultType', 'pkgCreateFieldSync', 'pkgCreateDraftSync', 'pkgCreateOsChange', 'pkgCreateOsHint', 'pkgCreateUpload', 'pkgCreateArtifactDel', 'pkgCreatePreset', 'pkgCreateInsert', 'pkgCreateSave', 'pkgCreateCheckId', 'pkgCreateCatalogArrived', 'pkgAdminAdd', 'pkgAdminEdit', 'pkgAdminForm', 'pkgAdminCurOs', 'pkgAdminFieldSync', 'pkgAdminDraftSync', 'pkgAdminOsChange', 'pkgAdminOsHint', 'pkgAdminSave', 'pkgAdminDelete', 'pkgAdminUpload', 'pkgAdminUploadDo', 'pkgAdminArtifactDel', 'pkgAdminStatus', 'pkgAdminRefresh', 'pkgAdminOsFilter', 'pkgBinBanner', 'pkgOsPluginOpen', 'pkgOsPluginRender', 'pkgUpdateOnline', 'pkgUpdateFile', 'pkgRestartNow', 'pkgUpdateUpload', 'pkgUpdateInfo', 'pkgUpdateApplied', 'pkgDenied', 'pkgD2WrapOnMessage', 'pkgD2Pending', 'pkgD2Receive', 'pkgD2PollSummary', 'pkgOsPlan', 'pkgOsPlanRender', 'pkgOsPlanSelChange', 'pkgOsPlanRequest', 'pkgOsPlanDownload', 'pkgOsPlanInstall', 'pkgOsPlanMachToggle', 'pkgOsPlanMachSelAll', 'pkgOsStoreRequest', 'pkgOsStoreList', 'pkgOsStoreSelChange', 'pkgOsStoreDel'];
+    obj.exports = ['onWebUIStartupEnd', 'pkgSidebarInject', 'pkgRequestList', 'pkgList', 'pkgCompose', 'pkgTableHtml', 'pkgTargetOs', 'pkgDevToggle', 'pkgDevSelectAll', 'pkgDevOsFilter', 'pkgDevListRender', 'pkgSelectedNodes', 'pkgSidebarOpen', 'pkgSidebarRenderDevices', 'pkgSidebarRender', 'pkgPkgToggle', 'pkgPkgSelectAll', 'pkgPkgSummary', 'pkgBatchRun', 'pkgOsScan', 'pkgOsImportManifest', 'pkgOsExportDownloader', 'pkgOsExportGo', 'pkgDownloaderReady', 'pkgOsScanPoll', 'pkgOsScanParse', 'pkgOsScanRender', 'pkgOsScanExport', 'pkgOsSidebarOpen', 'pkgOsRender', 'pkgOsTable', 'pkgOsKind', 'pkgOsAdminOpen', 'pkgIsOsView', 'pkgInstall', 'pkgRunOn', 'goPageStart', 'pkgMsg', 'pkgTabSetActive', 'pkgAdminOpen', 'pkgAdminRender', 'pkgCreateOpen', 'pkgCreateRender', 'pkgCreateCurOs', 'pkgCreateDefaultType', 'pkgCreateFieldSync', 'pkgCreateDraftSync', 'pkgCreateOsChange', 'pkgCreateOsHint', 'pkgCreateUpload', 'pkgCreateArtifactDel', 'pkgCreatePreset', 'pkgCreateInsert', 'pkgCreateSave', 'pkgCreateCheckId', 'pkgCreateCatalogArrived', 'pkgAdminAdd', 'pkgAdminEdit', 'pkgAdminForm', 'pkgAdminCurOs', 'pkgAdminFieldSync', 'pkgAdminDraftSync', 'pkgAdminOsChange', 'pkgAdminOsHint', 'pkgAdminSave', 'pkgAdminDelete', 'pkgAdminUpload', 'pkgAdminUploadDo', 'pkgAdminArtifactDel', 'pkgAdminStatus', 'pkgAdminRefresh', 'pkgAdminOsFilter', 'pkgBinBanner', 'pkgOsPluginOpen', 'pkgOsPluginRender', 'pkgUpdateOnline', 'pkgUpdateFile', 'pkgRestartNow', 'pkgAgentBuild', 'pkgAgentBuildRequest', 'pkgUpdateUpload', 'pkgUpdateInfo', 'pkgUpdateApplied', 'pkgDenied', 'pkgD2WrapOnMessage', 'pkgD2Pending', 'pkgD2Receive', 'pkgD2PollSummary', 'pkgOsPlan', 'pkgOsPlanRender', 'pkgOsPlanSelChange', 'pkgOsPlanRequest', 'pkgOsPlanDownload', 'pkgOsPlanInstall', 'pkgOsPlanMachToggle', 'pkgOsPlanMachSelAll', 'pkgOsStoreRequest', 'pkgOsStoreList', 'pkgOsStoreSelChange', 'pkgOsStoreDel'];
 
     obj.onWebUIStartupEnd = function () {
         try {
@@ -802,6 +809,42 @@ module.exports.pkgmanager = function (parent) {
                 x += '<div style="color:#888">La gestione degli aggiornamenti del plugin è riservata agli amministratori completi del server.</div>';
             }
             x += '<div id="pkgmanagerMsg" style="margin-top:10px;color:#888"></div>';
+            // v2.1.9: sezione "Binari agente" (solo admin, con stato core + disco)
+            var ab = window.pkgmanagerAgentBuild;
+            var abBtn = '<div style="margin-top:12px"><b>Binari agente</b> <input type=button value="Aggiorna" onclick="pluginHandler.pkgmanager.pkgAgentBuildRequest()"></div>';
+            if (ab == null) {
+                x += abBtn.replace('</div>', '<span style="color:#888;margin-left:8px">— clicca «Aggiorna» per lo stato dei download</span></div>');
+            } else {
+                var core = ab.core;
+                var st = '';
+                if (core == null) { st = '<span style="color:#888">Stato agentDefaults non disponibile su questa versione di MeshCentral (core senza agentbuilds.js).</span>'; }
+                else {
+                    st = 'Download agentDefaults: ' + (core.busy ? '<b>in corso</b>' : 'fermo') + ' — abilitato: ' + (core.enabled ? 'sì' : 'NO') + ' — errori: ' + (core.errors.length);
+                    if ((core.errors != null) && (core.errors.length > 0)) { for (var ei = 0; ei < core.errors.length; ei++) { st += '<div style="color:#b00;font-size:12px">• ' + EscapeHtml(core.errors[ei]) + '</div>'; } }
+                    var fl = (core.files || []);
+                    st += '<table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:6px">';
+                    for (var fi = 0; fi < fl.length; fi++) {
+                        var f = fl[fi];
+                        var bar = '';
+                        var pct = null;
+                        if (f.status === 'Downloading') { pct = ((f.received || 0) / Math.max(1, f.size || 1)) * 100; }
+                        else if (f.status === 'Ready') { pct = 100; }
+                        if (pct != null) { bar = '<div style="background:#eee;width:100px;display:inline-block;vertical-align:middle;height:10px;margin-right:6px"><div style="background:#2a7;height:10px;width:' + pct.toFixed(0) + '%"></div></div>'; }
+                        var extra = (f.status === 'Downloading') ? (' ' + Math.round((f.received || 0) / 1048576) + '/' + Math.round((f.size || 0) / 1048576) + ' MiB') : '';
+                        st += '<tr><td style="padding:1px 6px">' + EscapeHtml(f.filename || '?') + '</td><td style="padding:1px 6px;white-space:nowrap">' + bar + EscapeHtml(f.status || '?') + extra + (f.error ? ' <span style="color:#b00">' + EscapeHtml(f.error) + '</span>' : '') + '</td></tr>';
+                    }
+                    st += '</table>';
+                    if (fl.length == 0) { st += '<div style="color:#888;font-size:12px">Nessun file nel manifest agentbuilds (nessun download atteso).</div>'; }
+                }
+                // stato disco
+                for (var di = 0; di < (ab.disk || []).length; di++) {
+                    var d = ab.disk[di];
+                    var tot = 0, n = 0;
+                    for (var pi = 0; pi < d.items.length; pi++) { if (!d.items[pi].dir) { n++; tot += d.items[pi].size || 0; } }
+                    st += '<div style="margin-top:6px;font-size:12px;color:#888">' + EscapeHtml(d.dir) + '/: ' + n + ' file, ' + Math.round(tot / 1048576) + ' MiB</div>';
+                }
+                x += abBtn + '<div style="margin-top:6px">' + st + '</div>';
+            }
             x += '<div style="margin-top:14px;color:#888;font-size:12px">Canali di aggiornamento: <b>online</b> (il server scarica dal sorgente configurato in config.json) oppure <b>file</b> (airgap: carichi il pkgmanager.js nuovo da qui). In alternativa la scheda «Plugins» di My Server gestisce l\'upgrade dallo zip dichiarato in downloadUrl.</div>';
             m.innerHTML = x;
         } catch (e) { console.log('pkgmanager osplugin render failed: ' + e); }
@@ -1845,6 +1888,26 @@ module.exports.pkgmanager = function (parent) {
 
     // Server-side rejection of management ops from non-admins.
     // v1.9.6: auto-aggiornamento del plugin (solo full admin)
+    obj.pkgAgentBuildRequest = function () {
+        try { meshserver.send({ action: 'plugin', plugin: 'pkgmanager', pluginaction: 'agentbuildinfo' }); } catch (e) { }
+    };
+    obj.pkgAgentBuild = function (message) {
+        // v2.1.9: pannello "Binari agente" — stato agentDefaults del core con
+        // barra di avanzamento per i file in download, stato disco e errori.
+        try {
+            var info = ((message != null) ? message.info : null);
+            window.pkgmanagerAgentBuild = info;
+            pluginHandler.pkgmanager.pkgOsPluginRender();
+            // auto-refresh mentre qualcosa scarica (massimo un poll/5s)
+            var downloading = false;
+            if ((info != null) && (info.core != null)) {
+                if (info.core.busy === true) { downloading = true; }
+                for (var i = 0; i < (info.core.files || []).length; i++) { if (info.core.files[i].status === 'Downloading') { downloading = true; } }
+            }
+            if (downloading && (window.pkgmanagerAgentBuildTimer == null)) { window.pkgmanagerAgentBuildTimer = setTimeout(function () { window.pkgmanagerAgentBuildTimer = null; pluginHandler.pkgmanager.pkgAgentBuildRequest(); }, 5000); }
+            else if (!downloading && (window.pkgmanagerAgentBuildTimer != null)) { clearTimeout(window.pkgmanagerAgentBuildTimer); window.pkgmanagerAgentBuildTimer = null; }
+        } catch (e) { }
+    };
     obj.pkgRestartNow = function () {
         try {
             if (!window.confirm('Riavviare MeshCentral ora? Tutti gli utenti collegati verranno disconnessi e riconnessi al ritorno del server.')) { return; }
@@ -3409,6 +3472,48 @@ log('prossimo passo: copia ' + OUT_DIR + '/ nello store del server (My Files -> 
         function deny() { try { session.send({ action: 'plugin', plugin: 'pkgmanager', method: 'pkgDenied', msg: 'Operazioni di gestione riservate agli amministratori del server.' }); } catch (e) { } }
 
         if (command.pluginaction == 'list') { obj.replyCatalog(session, null, null); return; }
+
+        // v2.1.9: STATO DEI BINARI AGENTE DEFAULT (agentbuilds) — il core
+        // (agentbuilds.js) espone agentDefaults.status() con per-file status/
+        // received/size: il pannello "Binari agente" lo rende con barra di
+        // avanzamento. Aggiunto lo stato disco (agentbuilds/, agents/).
+        if (command.pluginaction == 'agentbuildinfo') {
+            if (!isAdmin) { deny(); return; }
+            (function () {
+                var out = { core: null, disk: [], tools: [] };
+                try {
+                    var ad = parent.parent.agentDefaults;
+                    if ((ad != null) && (typeof ad.status == 'function')) {
+                        var st = ad.status();
+                        out.core = { busy: !!st.busy, enabled: (st.enabled !== false), errors: (st.errors || []), files: (st.files || []), updates: (st.updates || null) };
+                    }
+                } catch (e1) { }
+                // stato disco: cache verificata agentbuilds/ e override agents/
+                var scanDir = function (base, depth, acc) {
+                    try {
+                        if (!parent.fs.existsSync(base)) return;
+                        for (var e of parent.fs.readdirSync(base)) {
+                            var p = parent.path.join(base, e);
+                            var stt = parent.fs.statSync(p);
+                            if (stt.isDirectory()) {
+                                if (depth > 0) { scanDir(p, depth - 1, acc); }
+                                else {
+                                    var sub = [];
+                                    try { for (var e2 of parent.fs.readdirSync(p)) { var p2 = parent.path.join(p, e2); var s2 = parent.fs.statSync(p2); sub.push({ name: e2, dir: s2.isDirectory(), size: s2.isDirectory() ? null : s2.size }); } } catch (e3) { }
+                                    acc.push({ name: e, dir: true, items: sub });
+                                }
+                            } else { acc.push({ name: e, dir: false, size: stt.size }); }
+                        }
+                    } catch (e4) { }
+                };
+                try {
+                    var ab = []; scanDir(parent.path.join(parent.parent.datapath, 'agentbuilds'), 1, ab); out.disk.push({ dir: 'agentbuilds', items: ab });
+                    var ag = []; scanDir(parent.path.join(parent.parent.datapath, 'agents'), 0, ag); out.disk.push({ dir: 'agents', items: ag });
+                } catch (e5) { }
+                try { session.send({ action: 'plugin', plugin: 'pkgmanager', method: 'pkgAgentBuild', info: out }); } catch (e6) { }
+            })();
+            return;
+        }
 
         // v2.1.8: RIAVVIO DEL SERVER dal pulsante del plugin (solo admin).
         // Usa il canale del launcher: 'Server restart...' su stdout + exit(0)
