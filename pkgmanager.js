@@ -1,6 +1,12 @@
 /**
  * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
  *
+ *     v2.2.7 FIXED SECTIONS + DOWNLOAD PROGRESS: the OS view is a stack of
+ *     fixed-height sections (dropdown on top, then Macchine, Pacchetti,
+ *     NEW Avanzamento download, Piano, Riassunto at the bottom), each with
+ *     its own internal scroll; page scroll stays free. osfetch now reports
+ *     per-file progress (pkgOsFetchProgress: start/ok/fail/end + total).
+ *
  *     v2.2.6 SUMMARY BAR + SCROLLABLE LISTS: fixed "Riassunto mancanti"
  *     strip at the bottom of the OS view (per release: machines, missing,
  *     bytes to download, in-store, selected) updated on every plan/select
@@ -435,7 +441,7 @@ module.exports.pkgmanager = function (parent) {
     var childProcess = null; try { childProcess = require('child_process'); } catch (e) { }
     var vmMod = null; try { vmMod = require('vm'); } catch (e) { }
     var obj = {};
-    obj.version = '2.2.6';
+    obj.version = '2.2.7';
         globalThis.__pkgmanagerActiveVersion = obj.version; // v2.1.7: versione ATTIVA (il vecchio modulo in cache dopo un install resta a ZONA, il reloadplugin la aggiorna)
     obj.fs = parent.fs;
     obj.path = parent.path;
@@ -714,7 +720,7 @@ module.exports.pkgmanager = function (parent) {
     setTimeout(function () { try { obj.ensureBinaries(); } catch (e) { obj.plog('ensureBinaries errore: ' + e); } }, 15000);
 
     // ---- Client-side (stringified into the browser) ----
-    obj.exports = ['onWebUIStartupEnd', 'pkgSidebarInject', 'pkgRequestList', 'pkgList', 'pkgCompose', 'pkgTableHtml', 'pkgTargetOs', 'pkgDevToggle', 'pkgDevSelectAll', 'pkgDevOsFilter', 'pkgDevListRender', 'pkgSelectedNodes', 'pkgSidebarOpen', 'pkgSidebarRenderDevices', 'pkgSidebarRender', 'pkgPkgToggle', 'pkgPkgSelectAll', 'pkgPkgSummary', 'pkgBatchRun', 'pkgOsScan', 'pkgOsImportManifest', 'pkgOsExportDownloader', 'pkgOsExportGo', 'pkgDownloaderReady', 'pkgOsScanPoll', 'pkgOsScanParse', 'pkgOsScanRender', 'pkgOsScanExport', 'pkgOsSidebarOpen', 'pkgOsRender', 'pkgOsMachinesRender', 'pkgOsPkgsRender', 'pkgOsPkgsToggle', 'pkgOsPkgsSelAll', 'pkgOsTable', 'pkgOsKind', 'pkgOsAdminOpen', 'pkgIsOsView', 'pkgInstall', 'pkgRunOn', 'goPageStart', 'pkgMsg', 'pkgTabSetActive', 'pkgAdminOpen', 'pkgAdminRender', 'pkgCreateOpen', 'pkgCreateRender', 'pkgCreateCurOs', 'pkgCreateDefaultType', 'pkgCreateFieldSync', 'pkgCreateDraftSync', 'pkgCreateOsChange', 'pkgCreateOsHint', 'pkgCreateUpload', 'pkgCreateArtifactDel', 'pkgCreatePreset', 'pkgCreateInsert', 'pkgCreateSave', 'pkgCreateCheckId', 'pkgCreateCatalogArrived', 'pkgAdminAdd', 'pkgAdminEdit', 'pkgAdminForm', 'pkgAdminCurOs', 'pkgAdminFieldSync', 'pkgAdminDraftSync', 'pkgAdminOsChange', 'pkgAdminOsHint', 'pkgAdminSave', 'pkgAdminDelete', 'pkgAdminUpload', 'pkgAdminUploadDo', 'pkgAdminArtifactDel', 'pkgAdminStatus', 'pkgAdminRefresh', 'pkgAdminOsFilter', 'pkgBinBanner', 'pkgOsPluginOpen', 'pkgOsPluginRender', 'pkgUpdateOnline', 'pkgUpdateFile', 'pkgRestartNow', 'pkgAgentBuild', 'pkgAgentBuildRequest', 'pkgBinStatus', 'pkgBinStatusRequest', 'pkgBinRetry', 'pkgLogTail', 'pkgLogTailRequest', 'pkgUpdateUpload', 'pkgUpdateInfo', 'pkgUpdateApplied', 'pkgDenied', 'pkgD2WrapOnMessage', 'pkgD2Pending', 'pkgD2Receive', 'pkgD2PollSummary', 'pkgOsPlan', 'pkgOsPlanRender', 'pkgOsPlanSelChange', 'pkgOsSummaryRender', 'pkgOsPlanRequest', 'pkgOsPlanDownload', 'pkgOsPlanInstall', 'pkgOsPlanMachToggle', 'pkgOsPlanMachSelAll', 'pkgOsStoreRequest', 'pkgOsStoreList', 'pkgOsStoreSelChange', 'pkgOsStoreDel'];
+    obj.exports = ['onWebUIStartupEnd', 'pkgSidebarInject', 'pkgRequestList', 'pkgList', 'pkgCompose', 'pkgTableHtml', 'pkgTargetOs', 'pkgDevToggle', 'pkgDevSelectAll', 'pkgDevOsFilter', 'pkgDevListRender', 'pkgSelectedNodes', 'pkgSidebarOpen', 'pkgSidebarRenderDevices', 'pkgSidebarRender', 'pkgPkgToggle', 'pkgPkgSelectAll', 'pkgPkgSummary', 'pkgBatchRun', 'pkgOsScan', 'pkgOsImportManifest', 'pkgOsExportDownloader', 'pkgOsExportGo', 'pkgDownloaderReady', 'pkgOsScanPoll', 'pkgOsScanParse', 'pkgOsScanRender', 'pkgOsScanExport', 'pkgOsSidebarOpen', 'pkgOsRender', 'pkgOsMachinesRender', 'pkgOsPkgsRender', 'pkgOsPkgsToggle', 'pkgOsPkgsSelAll', 'pkgOsTable', 'pkgOsKind', 'pkgOsAdminOpen', 'pkgIsOsView', 'pkgInstall', 'pkgRunOn', 'goPageStart', 'pkgMsg', 'pkgTabSetActive', 'pkgAdminOpen', 'pkgAdminRender', 'pkgCreateOpen', 'pkgCreateRender', 'pkgCreateCurOs', 'pkgCreateDefaultType', 'pkgCreateFieldSync', 'pkgCreateDraftSync', 'pkgCreateOsChange', 'pkgCreateOsHint', 'pkgCreateUpload', 'pkgCreateArtifactDel', 'pkgCreatePreset', 'pkgCreateInsert', 'pkgCreateSave', 'pkgCreateCheckId', 'pkgCreateCatalogArrived', 'pkgAdminAdd', 'pkgAdminEdit', 'pkgAdminForm', 'pkgAdminCurOs', 'pkgAdminFieldSync', 'pkgAdminDraftSync', 'pkgAdminOsChange', 'pkgAdminOsHint', 'pkgAdminSave', 'pkgAdminDelete', 'pkgAdminUpload', 'pkgAdminUploadDo', 'pkgAdminArtifactDel', 'pkgAdminStatus', 'pkgAdminRefresh', 'pkgAdminOsFilter', 'pkgBinBanner', 'pkgOsPluginOpen', 'pkgOsPluginRender', 'pkgUpdateOnline', 'pkgUpdateFile', 'pkgRestartNow', 'pkgAgentBuild', 'pkgAgentBuildRequest', 'pkgBinStatus', 'pkgBinStatusRequest', 'pkgBinRetry', 'pkgLogTail', 'pkgLogTailRequest', 'pkgUpdateUpload', 'pkgUpdateInfo', 'pkgUpdateApplied', 'pkgDenied', 'pkgD2WrapOnMessage', 'pkgD2Pending', 'pkgD2Receive', 'pkgD2PollSummary', 'pkgOsPlan', 'pkgOsPlanRender', 'pkgOsPlanSelChange', 'pkgOsSummaryRender', 'pkgOsFetchProgress', 'pkgOsFetchProgRender', 'pkgOsPlanRequest', 'pkgOsPlanDownload', 'pkgOsPlanInstall', 'pkgOsPlanMachToggle', 'pkgOsPlanMachSelAll', 'pkgOsStoreRequest', 'pkgOsStoreList', 'pkgOsStoreSelChange', 'pkgOsStoreDel'];
 
     obj.onWebUIStartupEnd = function () {
         try {
@@ -2338,16 +2344,21 @@ module.exports.pkgmanager = function (parent) {
             if (m == null) return;
             var osfAdm = ((typeof userinfo != 'undefined') && (userinfo != null) && (userinfo.siteadmin === 0xFFFFFFFF));
             var x = '<div style="margin-bottom:8px;font-size:16px"><b>Aggiornamenti del sistema operativo</b> <span style="color:#888;font-weight:normal;font-size:12px">(inventario per macchina — scaricamento su questo server, installazione airgap in LAN)</span></div>' + pluginHandler.pkgmanager.pkgBinBanner();
+            x += '<div id="pkgmanagerPlanSelWrap" style="margin-bottom:8px"></div>';
             x += '<div style="margin-bottom:6px"><input type=button value="Scansiona macchine" onclick="pluginHandler.pkgmanager.pkgOsScan()"> ' + '<input type=button value="Installa aggiornamenti" onclick="pluginHandler.pkgmanager.pkgOsPlanInstall()"> ' + (osfAdm ? '<input type=button value="Ricalcola piano" onclick="pluginHandler.pkgmanager.pkgOsPlanRequest()" title="Ricalcola il piano senza riscansionare le macchine"> ' : '') + (osfAdm ? '<input type=button value="Esporta downloader…" title="Genera il downloader COMPILATO per la piattaforma scelta con l inventario della scansione incorporato: eseguilo su una macchina con internet, copia os-updates/ nello store (My Files) e importa il manifest — LA via per i server airgap (py = script Python)" onclick="pluginHandler.pkgmanager.pkgOsExportDownloader()"> ' : '') + '<input type=button value="Esporta report (.json)" onclick="pluginHandler.pkgmanager.pkgOsScanExport()"> <span id="pkgmanagerPlanMsg" style="color:#888"></span></div>';
             // v2.2.1: DUE RIQUADRI — sinistra macchine scansionate, destra pacchetti
             // rilevati (unici per release, deduplicati tra macchine) con selezione
             // e scarico di SOLO i selezionati.
-            // v2.2.6: TUTTE le liste lunghe sono scrollabili (macchine e piano
-            // prima crescevano senza limite e perdevano la vista); in fondo
-            // resta fissa la barra «Riassunto mancanti».
-            x += '<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start;margin-bottom:10px"><div style="flex:1;min-width:280px;border:1px solid #ddd;border-radius:6px;padding:8px"><b>Macchine scansionate</b> <span id="pkgmanagerOsMachinesSummary" style="color:#888;font-size:12px"></span><div id="pkgmanagerOsMachines" style="margin-top:6px;font-size:12px;max-height:420px;overflow:auto"></div></div><div style="flex:1.5;min-width:340px;border:1px solid #ddd;border-radius:6px;padding:8px"><b>Pacchetti rilevati</b> <span id="pkgmanagerOsPkgsSummary" style="color:#888;font-size:12px"></span><div id="pkgmanagerOsPkgs" style="margin-top:6px;font-size:12px;max-height:420px;overflow:auto"></div><div id="pkgmanagerOsPkgsActions" style="margin-top:6px"></div></div></div>';
-            x += '<div id="pkgmanagerPlanWrap"></div>';
-            x += '<div id="pkgmanagerOsSummary" style="margin-top:12px;border-top:2px solid #ccc;padding-top:8px;font-size:12px"></div>';
+            // v2.2.7: SEZIONI A POSIZIONE FISSA in colonna — il selettore del
+            // gruppo sta sopra tutte; ogni sezione ha altezza fissa e scolle
+            // DENTRO, cosi' l'ordine non si sposta mai con il contenuto.
+            var secH = 380; // altezza contenuto per sezione
+            var secHead = function (t, span) { return '<div style="background:#e8e8e8;border-bottom:1px solid #ddd;border-radius:6px 6px 0 0;padding:6px 10px;font-weight:bold">' + t + ((span != null) ? ' <span id="' + span + '" style="color:#888;font-weight:normal;font-size:12px"></span>' : '') + '</div>'; };
+            x += '<div style="border:1px solid #ddd;border-radius:6px;margin-bottom:10px">' + secHead('Macchine scansionate', 'pkgmanagerOsMachinesSummary') + '<div id="pkgmanagerOsMachines" style="font-size:12px;height:' + secH + 'px;overflow:auto"></div></div>';
+            x += '<div style="border:1px solid #ddd;border-radius:6px;margin-bottom:10px">' + secHead('Pacchetti rilevati', 'pkgmanagerOsPkgsSummary') + '<div id="pkgmanagerOsPkgs" style="font-size:12px;height:' + secH + 'px;overflow:auto"></div><div id="pkgmanagerOsPkgsActions" style="padding:6px 10px"></div></div>';
+            x += '<div style="border:1px solid #ddd;border-radius:6px;margin-bottom:10px">' + secHead('Avanzamento download') + '<div id="pkgmanagerOsFetchProg" style="font-size:12px;height:' + Math.round(secH / 2) + 'px;overflow:auto"></div></div>';
+            x += '<div style="border:1px solid #ddd;border-radius:6px;margin-bottom:10px">' + secHead('Piano aggiornamenti') + '<div id="pkgmanagerPlanWrap" style="padding:6px 10px;max-height:420px;overflow:auto"></div></div>';
+            x += '<div style="border:1px solid #ddd;border-radius:6px;margin-bottom:10px">' + secHead('Riassunto mancanti') + '<div id="pkgmanagerOsSummary" style="font-size:12px;height:220px;overflow:auto"></div></div>';
             x += '<div id="pkgmanagerMsg" style="margin-top:10px;color:#888"></div>';
             m.innerHTML = x;
             pluginHandler.pkgmanager.pkgOsPlanRender();
@@ -2355,7 +2366,43 @@ module.exports.pkgmanager = function (parent) {
             pluginHandler.pkgmanager.pkgOsMachinesRender();
             pluginHandler.pkgmanager.pkgOsPkgsRender();
             pluginHandler.pkgmanager.pkgOsSummaryRender();
+            pluginHandler.pkgmanager.pkgOsFetchProgRender();
         } catch (e) { console.log('pkgmanager os render failed: ' + e); }
+    };
+
+    // v2.2.7: AVANZAMENTO DOWNLOAD — riceve i progressi per-file di osfetch
+    // (start/ok/fail/end) e li mostra nella sezione dedicata.
+    obj.pkgOsFetchProgress = function (server, message) {
+        try {
+            if (message == null) { return; }
+            if (window.pkgmanagerOsFetchProg == null) { window.pkgmanagerOsFetchProg = { running: false, done: 0, total: null, rows: [] }; }
+            var fp = window.pkgmanagerOsFetchProg;
+            fp.total = ((message.total != null) ? message.total : fp.total);
+            if (message.state == 'start') { fp.running = true; }
+            else if (message.state == 'end') { fp.running = false; }
+            else if ((message.state == 'ok') || (message.state == 'fail')) {
+                fp.done = ((message.done != null) ? message.done : fp.done + 1);
+                fp.rows.push({ file: message.current, state: message.state, bytes: (message.bytes || 0), reason: message.reason });
+                if (fp.rows.length > 500) { fp.rows.splice(0, fp.rows.length - 500); }
+            }
+            pluginHandler.pkgmanager.pkgOsFetchProgRender();
+        } catch (e) { console.log('pkgmanager osfetch progress failed: ' + e); }
+    };
+
+    obj.pkgOsFetchProgRender = function () {
+        try {
+            var el = document.getElementById('pkgmanagerOsFetchProg');
+            if (el == null) return;
+            var fp = window.pkgmanagerOsFetchProg;
+            if ((fp == null) || (fp.rows.length == 0)) { el.innerHTML = '<div style="color:#888">Nessun download in corso: seleziona i pacchetti in «Pacchetti rilevati» e premi «Scarica selezionati».</div>'; return; }
+            var pct = ((fp.total != null) && (fp.total > 0)) ? Math.round((fp.done / fp.total) * 100) : 0;
+            var x = ((fp.running ? '<div style="margin-bottom:4px">Download in corso: <b>' + fp.done + '/' + fp.total + '</b> (' + pct + '%)</div>' : '<div style="margin-bottom:4px;color:#080">Download completato: ' + fp.done + '/' + fp.total + '</div>') + '<div style="height:10px;background:#ddd;border-radius:5px;margin-bottom:6px"><div style="height:10px;background:#080;border-radius:5px;width:' + pct + '%"></div></div>');
+            for (var i = 0; i < fp.rows.length; i++) {
+                var r = fp.rows[i];
+                x += '<div style="padding:1px 0;border-bottom:1px solid #f2f2f2">' + ((r.state == 'ok') ? '<span style="color:#080">✓</span>' : '<span style="color:#d00">✗</span>') + ' <b>' + EscapeHtml(r.file) + '</b> ' + ((r.state == 'ok') ? '<span style="color:#888">' + Math.round(r.bytes / 1048576) + ' MiB</span>' : '<span style="color:#d00;font-size:11px">' + EscapeHtml(r.reason || 'errore') + '</span>') + '</div>';
+            }
+            el.innerHTML = x;
+        } catch (e) { console.log('pkgmanager osfetch prog render failed: ' + e); }
     };
 
     // v2.2.6: BARRA RIASSUNTO in fondo alla vista — una riga per gruppo
@@ -2530,6 +2577,7 @@ module.exports.pkgmanager = function (parent) {
             if ((message == null) || (message.plan == null)) { return; }
             window.pkgmanagerOsPlan = message.plan;
             if (message.opAck != null) { pluginHandler.pkgmanager.pkgMsg(message.opAck); }
+            if ((window.pkgmanagerOsFetchProg != null) && (window.pkgmanagerOsFetchProg.running == true)) { window.pkgmanagerOsFetchProg.running = false; pluginHandler.pkgmanager.pkgOsFetchProgRender(); } // v2.2.7
             pluginHandler.pkgmanager.pkgOsPlanRender();
             pluginHandler.pkgmanager.pkgOsPkgsRender(); // v2.2.1: riquadro pacchetti si aggiorna col piano
             pluginHandler.pkgmanager.pkgOsSummaryRender(); // v2.2.6
@@ -2569,20 +2617,26 @@ module.exports.pkgmanager = function (parent) {
             if ((plan == null) || (plan.groupKeys == null) || (plan.groupKeys.length == 0)) {
                 var nl = 0; var runP = window.pkgmanagerOsScan;
                 if ((runP != null) && (runP.machs != null)) { for (var nidP in runP.machs) { var mmP = runP.machs[nidP]; if ((mmP.got == true) && (mmP.os != null) && (mmP.os != 'linux')) { nl++; } } }
-                w.innerHTML = '<div style="color:#888;padding:6px">' + ((nl > 0) ? ('Nessun piano: solo macchine Windows/macOS (' + nl + ') — il piano copre solo Linux; per le altre usa «Esporta downloader…».') : ('Nessun piano: fai «Scansiona macchine» — il piano (pacchetti mancanti per release + stato sul server) viene calcolato al termine della scansione.')) + '</div>';
+                w.innerHTML = '<div style="color:#888;padding:6px">' + ((nl > 0) ? ('Nessun piano: solo macchine Windows/macOS (' + nl + ') — i mancanti arrivano dal catalogo Microsoft alla prossima scansione.') : ('Nessun piano: fai «Scansiona macchine» — il piano (pacchetti mancanti per release + stato sul server) viene calcolato al termine della scansione.')) + '</div>';
+                var sw2 = document.getElementById('pkgmanagerPlanSelWrap');
+                if (sw2 != null) { sw2.innerHTML = ''; }
                 return; }
             var keys = plan.groupKeys;
             if ((window.pkgmanagerOsPlanSel == null) || (keys.indexOf(window.pkgmanagerOsPlanSel) < 0)) { window.pkgmanagerOsPlanSel = keys[0]; }
             var grp = plan.groups[window.pkgmanagerOsPlanSel];
             var x = '';
             var scanTime = ((window.pkgmanagerOsScan != null) && (window.pkgmanagerOsScan.started != null)) ? new Date(window.pkgmanagerOsScan.started).toLocaleTimeString() : '?';
-            x += '<div style="margin-bottom:8px">Sistema operativo: <select id="pkgmanagerOsPlanSel" onchange="pluginHandler.pkgmanager.pkgOsPlanSelChange()" style="padding:3px 6px">';
+            // v2.2.7: selettore nel SUO div sopra tutte le sezioni
+            var selX = '<span style="font-weight:bold">Sistema operativo:</span> <select id="pkgmanagerOsPlanSel" onchange="pluginHandler.pkgmanager.pkgOsPlanSelChange()" style="padding:3px 6px">';
             for (var i = 0; i < keys.length; i++) {
                 var g = plan.groups[keys[i]];
                 var label = g.distro + ' ' + g.ver + ((g.codename != null) ? ' (' + g.codename + ')' : '') + ' — ' + Object.keys(g.machines).length + ' macchina/e';
-                x += '<option value="' + EscapeHtml(keys[i]) + '"' + (keys[i] == window.pkgmanagerOsPlanSel ? ' selected' : '') + '>' + EscapeHtml(label) + '</option>';
+                selX += '<option value="' + EscapeHtml(keys[i]) + '"' + (keys[i] == window.pkgmanagerOsPlanSel ? ' selected' : '') + '>' + EscapeHtml(label) + '</option>';
             }
-            x += '</select> <span style="color:#888;font-size:12px">' + ((grp.updates.length > 0) ? (grp.updates.length + ' aggiornamenti nel piano — ' + ((grp.machNames != null) ? grp.machNames.join(', ') : '') + ((grp.os == 'windows') ? ' (dal catalogo Microsoft, primissimi 30 per data)' : '')) : ((grp.os == 'windows') ? 'nessun aggiornamento mancante nel catalogo per questa release' : 'mancanti non deducibili dalla scansione (best effort)')) + '</span> <span style="color:#a60;font-size:12px">piano basato sulla scansione delle ' + EscapeHtml(scanTime) + ' — dopo un install o installazioni locali rilancia «Scansiona macchine».</span></div>';
+            selX += '</select> <span style="color:#888;font-size:12px">' + ((grp.updates.length > 0) ? (grp.updates.length + ' aggiornamenti nel piano — ' + ((grp.machNames != null) ? grp.machNames.join(', ') : '') + ((grp.os == 'windows') ? ' (dal catalogo Microsoft, primissimi 30 per data)' : '')) : ((grp.os == 'windows') ? 'nessun aggiornamento mancante nel catalogo per questa release' : 'mancanti non deducibili dalla scansione (best effort)')) + '</span> <span style="color:#a60;font-size:12px">piano basato sulla scansione delle ' + EscapeHtml(scanTime) + ' — dopo un install o installazioni locali rilancia «Scansiona macchine».</span>';
+            var selWrap = document.getElementById('pkgmanagerPlanSelWrap');
+            if (selWrap != null) { selWrap.innerHTML = selX; }
+            selX = null;
             // v2.1.2: macchine con stato dpkg incoerente (dpkg --audit non vuoto)
             var broken = [];
             try {
@@ -2654,6 +2708,8 @@ module.exports.pkgmanager = function (parent) {
             var fsel = [];
             if (window.pkgmanagerOsSelPkg != null) { for (var sk in window.pkgmanagerOsSelPkg) { if (window.pkgmanagerOsSelPkg[sk] === true) { fsel.push(sk); } } }
             if (fsel.length == 0) { pluginHandler.pkgmanager.pkgMsg('Seleziona almeno un pacchetto nel riquadro «Pacchetti rilevati», poi «Scarica selezionati».'); return; }
+            window.pkgmanagerOsFetchProg = { running: true, done: 0, total: null, rows: [] }; // v2.2.7
+            pluginHandler.pkgmanager.pkgOsFetchProgRender();
             meshserver.send({ action: 'plugin', plugin: 'pkgmanager', pluginaction: 'osfetch', machines: machines, packages: fsel });
             pluginHandler.pkgmanager.pkgMsg('Download server-side avviato: ' + fsel.length + ' pacchetti selezionati — il piano si aggiorna all esito.');
         } catch (e) { pluginHandler.pkgmanager.pkgMsg('Download fallito: ' + e); }
@@ -4206,6 +4262,18 @@ log('prossimo passo: copia ' + OUT_DIR + '/ nello store del server (My Files -> 
                     var fsel = null;
                     if (Array.isArray(command.packages)) { fsel = {}; for (var si = 0; si < command.packages.length; si++) { fsel[String(command.packages[si])] = 1; } }
                     var gkeys = plan.groupKeys; var dl = 0; var dlok = 0;
+                    // v2.2.7: TOTAL prima del loop (per la barra di avanzamento)
+                    var ftot = 0;
+                    for (var gi2 = 0; gi2 < gkeys.length; gi2++) {
+                        var grp2 = plan.groups[gkeys[gi2]];
+                        if (grp2 == null) { continue; }
+                        if ((grp2.os != 'linux') && (!((grp2.os == 'windows') && (grp2.updates != null) && (grp2.updates.length > 0)))) { continue; }
+                        for (var ui2 = 0; ui2 < grp2.updates.length; ui2++) { var u2p = grp2.updates[ui2]; if ((u2p.inStore !== true) && ((fsel == null) || (fsel[grp2.storeDirName + '/' + u2p.file] != null))) { ftot++; } }
+                    }
+                    var sendProg = function (file, state, bytes, reason) {
+                        try { session.send({ action: 'plugin', plugin: 'pkgmanager', method: 'pkgOsFetchProgress', total: ftot, done: dlok, current: file, state: state, bytes: (bytes || 0), reason: (reason || null) }); } catch (e) { }
+                    };
+                    sendProg(null, 'start', 0, null); // running=true sul client
                     for (var gi = 0; gi < gkeys.length; gi++) {
                         var grp = plan.groups[gkeys[gi]];
                         if (grp.os != 'linux') { if ((grp.os == 'windows') && (grp.updates != null) && (grp.updates.length > 0)) { grp.storeDirName = grp.storeDirName || ('os-updates-windows' + ((grp.displayVer != null) && (grp.displayVer != '') ? ('-' + grp.displayVer.toLowerCase()) : '')); } else { continue; } }
@@ -4219,13 +4287,15 @@ log('prossimo passo: copia ' + OUT_DIR + '/ nello store del server (My Files -> 
                             dl++;
                             var buf = null;
                             try { buf = await fget(u.origUrl); } catch (e1) { try { buf = await fget(u.url); } catch (e2) { } }
-                            if (buf == null) { fskipped.push({ file: u.file, reason: 'download fallito (' + u.origUrl + ')' }); continue; }
+                            if (buf == null) { fskipped.push({ file: u.file, reason: 'download fallito (' + u.origUrl + ')' }); sendProg(u.file, 'fail', 0, 'download fallito'); continue; }
                             parent.fs.writeFileSync(parent.path.join(sdir, u.file), buf);
                             u.sha384 = crypto.createHash('sha384').update(buf).digest('hex');
                             u.size = buf.length; u.inStore = true; dlok++;
                             obj.plog('osfetch ok ' + grp.storeDirName + '/' + u.file + ' (' + Math.round(buf.length / 1024) + 'KB)');
+                            sendProg(u.file, 'ok', buf.length, null);
                         }
                     }
+                    sendProg(null, 'end', 0, null);
                     obj.plog('osfetch -> ' + dlok + ' scaricati, ' + fskipped.length + ' saltati');
                     try { session.send({ action: 'plugin', plugin: 'pkgmanager', method: 'pkgOsPlan', plan: plan, opAck: 'Scaricati ' + dlok + ' nuovi file nello store; ' + fskipped.length + ' saltati (dettaglio qui sotto).' + ((fsel != null) ? ' Selezione: ' + Object.keys(fsel).length + ' pacchetti.' : '') }); } catch (e) { }
                 } catch (err) {

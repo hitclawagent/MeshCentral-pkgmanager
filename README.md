@@ -2,8 +2,10 @@
 
 A [MeshCentral](https://github.com/Ylianst/MeshCentral) plugin for **remote package installation** on Windows, Linux and macOS agents. Catalog-driven, with **airgap installs** (devices never touch the internet: artifacts are downloaded from the MeshCentral server itself over the LAN).
 
-Current version: **2.2.6** — requires MeshCentral **1.3.1**
+Current version: **2.2.7** — requires MeshCentral **1.3.1**
 
+> **2.2.7**: the OS view is a stack of fixed-position sections (dropdown selector on top, then Macchine scansionate · Pacchetti rilevati · NEW Avanzamento download · Piano · Riassunto mancanti at the bottom), each with a fixed height and its own internal scroll — content no longer shifts the layout, the page scrolls freely. osfetch reports per-file download progress (bar, done/total, per-file ok/fail lines) to the new section.
+>
 > **2.2.6**: fixed bottom "Riassunto mancanti" bar in the OS view — per release: machines, missing count, bytes to download, in-store count, selected; totals row; updates on every plan/selection change. All long lists are scrollable now (machines box and plan table capped at 420px like the packages box), so long inventories no longer push the summary out of view.
 >
 > **2.2.5**: UNIFIED OS PLAN — Windows machines are now first-class: the server queries the Microsoft Update Catalog for each Windows release ("Windows 10 Version 22H2"), lists missing updates (KB not installed on at least one machine of the group) with title, date, size and resolved download URL, and «Scarica selezionati» saves the .msu files in the store exactly like Linux .deb (same checkboxes, same store view os-updates-windows-<release>). «Esporta downloader…» remains only for airgap servers. Install (.msu push + wusa) is the next step, not wired yet.
