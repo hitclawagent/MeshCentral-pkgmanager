@@ -1,6 +1,10 @@
 /**
  * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
  *
+ *     v2.2.8 SIDE-BY-SIDE TOP PANES: Macchine scansionate and Pacchetti
+ *     rilevati go back to a flex row (1 : 1.5), as two fixed sections;
+ *     the rest of the v2.2.7 stack is unchanged.
+ *
  *     v2.2.7 FIXED SECTIONS + DOWNLOAD PROGRESS: the OS view is a stack of
  *     fixed-height sections (dropdown on top, then Macchine, Pacchetti,
  *     NEW Avanzamento download, Piano, Riassunto at the bottom), each with
@@ -441,7 +445,7 @@ module.exports.pkgmanager = function (parent) {
     var childProcess = null; try { childProcess = require('child_process'); } catch (e) { }
     var vmMod = null; try { vmMod = require('vm'); } catch (e) { }
     var obj = {};
-    obj.version = '2.2.7';
+    obj.version = '2.2.8';
         globalThis.__pkgmanagerActiveVersion = obj.version; // v2.1.7: versione ATTIVA (il vecchio modulo in cache dopo un install resta a ZONA, il reloadplugin la aggiorna)
     obj.fs = parent.fs;
     obj.path = parent.path;
@@ -2354,8 +2358,11 @@ module.exports.pkgmanager = function (parent) {
             // DENTRO, cosi' l'ordine non si sposta mai con il contenuto.
             var secH = 380; // altezza contenuto per sezione
             var secHead = function (t, span) { return '<div style="background:#e8e8e8;border-bottom:1px solid #ddd;border-radius:6px 6px 0 0;padding:6px 10px;font-weight:bold">' + t + ((span != null) ? ' <span id="' + span + '" style="color:#888;font-weight:normal;font-size:12px"></span>' : '') + '</div>'; };
-            x += '<div style="border:1px solid #ddd;border-radius:6px;margin-bottom:10px">' + secHead('Macchine scansionate', 'pkgmanagerOsMachinesSummary') + '<div id="pkgmanagerOsMachines" style="font-size:12px;height:' + secH + 'px;overflow:auto"></div></div>';
-            x += '<div style="border:1px solid #ddd;border-radius:6px;margin-bottom:10px">' + secHead('Pacchetti rilevati', 'pkgmanagerOsPkgsSummary') + '<div id="pkgmanagerOsPkgs" style="font-size:12px;height:' + secH + 'px;overflow:auto"></div><div id="pkgmanagerOsPkgsActions" style="padding:6px 10px"></div></div>';
+            // v2.2.8: Macchine e Pacchetti AFFIANCATI (due colonne flex), come nel layout a due riquadri
+            x += '<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:stretch;margin-bottom:10px">';
+            x += '<div style="flex:1;min-width:280px;border:1px solid #ddd;border-radius:6px">' + secHead('Macchine scansionate', 'pkgmanagerOsMachinesSummary') + '<div id="pkgmanagerOsMachines" style="font-size:12px;height:' + secH + 'px;overflow:auto"></div></div>';
+            x += '<div style="flex:1.5;min-width:340px;border:1px solid #ddd;border-radius:6px">' + secHead('Pacchetti rilevati', 'pkgmanagerOsPkgsSummary') + '<div id="pkgmanagerOsPkgs" style="font-size:12px;height:' + secH + 'px;overflow:auto"></div><div id="pkgmanagerOsPkgsActions" style="padding:6px 10px"></div></div>';
+            x += '</div>';
             x += '<div style="border:1px solid #ddd;border-radius:6px;margin-bottom:10px">' + secHead('Avanzamento download') + '<div id="pkgmanagerOsFetchProg" style="font-size:12px;height:' + Math.round(secH / 2) + 'px;overflow:auto"></div></div>';
             x += '<div style="border:1px solid #ddd;border-radius:6px;margin-bottom:10px">' + secHead('Piano aggiornamenti') + '<div id="pkgmanagerPlanWrap" style="padding:6px 10px;max-height:420px;overflow:auto"></div></div>';
             x += '<div style="border:1px solid #ddd;border-radius:6px;margin-bottom:10px">' + secHead('Riassunto mancanti') + '<div id="pkgmanagerOsSummary" style="font-size:12px;height:220px;overflow:auto"></div></div>';
