@@ -1,6 +1,11 @@
 /**
  * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
  *
+ *     v2.2.11 PLAN SECTION REMOVED: the "Piano aggiornamenti" group table
+ *     is gone (the unified packages pane + summary replace it); the group
+ *     selector stays on top, the dpkg-audit warning moved into the
+ *     summary, install actions keep working off the plan data.
+ *
  *     v2.2.10 STORE CHECK FOR ALL OS + LAYOUT TWEAK: inStore/sha384 now
  *     computed for windows groups too (the check previously skipped any
  *     non-linux group, so .msu files were re-downloaded even when already
@@ -456,7 +461,7 @@ module.exports.pkgmanager = function (parent) {
     var childProcess = null; try { childProcess = require('child_process'); } catch (e) { }
     var vmMod = null; try { vmMod = require('vm'); } catch (e) { }
     var obj = {};
-    obj.version = '2.2.10';
+    obj.version = '2.2.11';
         globalThis.__pkgmanagerActiveVersion = obj.version; // v2.1.7: versione ATTIVA (il vecchio modulo in cache dopo un install resta a ZONA, il reloadplugin la aggiorna)
     obj.fs = parent.fs;
     obj.path = parent.path;
@@ -2382,7 +2387,6 @@ module.exports.pkgmanager = function (parent) {
             x += '<div style="border:1px solid #ddd;border-radius:6px">' + secHead('Pacchetti rilevati', 'pkgmanagerOsPkgsSummary') + '<div id="pkgmanagerOsPkgs" style="font-size:12px;height:310px;overflow:auto"></div><div id="pkgmanagerOsPkgsActions" style="padding:6px 10px"></div></div>';
             x += '<div style="border:1px solid #ddd;border-radius:6px">' + secHead('Avanzamento download') + '<div id="pkgmanagerOsFetchProg" style="font-size:12px;height:240px;overflow:auto"></div></div>';
             x += '</div>';
-            x += '<div style="border:1px solid #ddd;border-radius:6px;margin-bottom:10px">' + secHead('Piano aggiornamenti') + '<div id="pkgmanagerPlanWrap" style="padding:6px 10px;max-height:420px;overflow:auto"></div></div>';
             x += '<div style="border:1px solid #ddd;border-radius:6px;margin-bottom:10px">' + secHead('Riassunto mancanti') + '<div id="pkgmanagerOsSummary" style="font-size:12px;height:220px;overflow:auto"></div></div>';
             x += '<div id="pkgmanagerMsg" style="margin-top:10px;color:#888"></div>';
             m.innerHTML = x;
@@ -2441,6 +2445,15 @@ module.exports.pkgmanager = function (parent) {
             var plan = window.pkgmanagerOsPlan;
             if (window.pkgmanagerOsSelPkg == null) { window.pkgmanagerOsSelPkg = {}; }
             var x = '<b>Riassunto mancanti</b>';
+            // v2.2.11: avviso macchine con dpkg incoerente (prima nel piano)
+            try {
+                var runD = window.pkgmanagerOsScan;
+                if ((runD != null) && (runD.machs != null)) {
+                    var brk = [];
+                    for (var nidD in runD.machs) { var mmD = runD.machs[nidD]; if ((mmD.audit != null) && (mmD.audit.length > 0)) { brk.push(mmD.name || nidD); } }
+                    if (brk.length > 0) { x += '<div style="margin:4px 0;padding:4px 6px;border:1px solid #d80;border-radius:4px;background:#fff8ee;color:#a60"><b>⚠ Stato dpkg incoerente</b> su: ' + EscapeHtml(brk.join(', ')) + ' — esegui <code>sudo apt --fix-broken install</code> sulla macchina prima di installare.</div>'; }
+                }
+            } catch (eD) { }
             var selTot = 0, selByte = 0;
             if ((plan == null) || (plan.groupKeys == null) || (plan.groupKeys.length == 0)) {
                 x += '<span style="color:#888"> — nessun piano: premi «Scansiona macchine».</span>';
@@ -2636,20 +2649,17 @@ module.exports.pkgmanager = function (parent) {
     // v2.0.8: rendering piano — menu a discesa gruppi + tabella pacchetti.
     obj.pkgOsPlanRender = function () {
         try {
-            var w = document.getElementById('pkgmanagerPlanWrap');
-            if (w == null) return;
             var plan = window.pkgmanagerOsPlan;
             if ((plan == null) || (plan.groupKeys == null) || (plan.groupKeys.length == 0)) {
                 var nl = 0; var runP = window.pkgmanagerOsScan;
                 if ((runP != null) && (runP.machs != null)) { for (var nidP in runP.machs) { var mmP = runP.machs[nidP]; if ((mmP.got == true) && (mmP.os != null) && (mmP.os != 'linux')) { nl++; } } }
-                w.innerHTML = '<div style="color:#888;padding:6px">' + ((nl > 0) ? ('Nessun piano: solo macchine Windows/macOS (' + nl + ') — i mancanti arrivano dal catalogo Microsoft alla prossima scansione.') : ('Nessun piano: fai «Scansiona macchine» — il piano (pacchetti mancanti per release + stato sul server) viene calcolato al termine della scansione.')) + '</div>';
                 var sw2 = document.getElementById('pkgmanagerPlanSelWrap');
-                if (sw2 != null) { sw2.innerHTML = ''; }
+                if (sw2 != null) { sw2.innerHTML = ((nl > 0) ? ('<span style="color:#888;font-size:12px">Nessun piano: solo macchine Windows/macOS (' + nl + ') — i mancanti arrivano dal catalogo Microsoft alla prossima scansione.</span>') : ('<span style="color:#888;font-size:12px">Nessun piano: fai «Scansiona macchine».</span>')); }
+                try { pluginHandler.pkgmanager.pkgOsSummaryRender(); } catch (eS) { }
                 return; }
             var keys = plan.groupKeys;
             if ((window.pkgmanagerOsPlanSel == null) || (keys.indexOf(window.pkgmanagerOsPlanSel) < 0)) { window.pkgmanagerOsPlanSel = keys[0]; }
             var grp = plan.groups[window.pkgmanagerOsPlanSel];
-            var x = '';
             var scanTime = ((window.pkgmanagerOsScan != null) && (window.pkgmanagerOsScan.started != null)) ? new Date(window.pkgmanagerOsScan.started).toLocaleTimeString() : '?';
             // v2.2.7: selettore nel SUO div sopra tutte le sezioni
             var selX = '<span style="font-weight:bold">Sistema operativo:</span> <select id="pkgmanagerOsPlanSel" onchange="pluginHandler.pkgmanager.pkgOsPlanSelChange()" style="padding:3px 6px">';
@@ -2662,60 +2672,7 @@ module.exports.pkgmanager = function (parent) {
             var selWrap = document.getElementById('pkgmanagerPlanSelWrap');
             if (selWrap != null) { selWrap.innerHTML = selX; }
             selX = null;
-            // v2.1.2: macchine con stato dpkg incoerente (dpkg --audit non vuoto)
-            var broken = [];
-            try {
-                var runS = window.pkgmanagerOsScan;
-                if ((runS != null) && (runS.machs != null)) {
-                    for (var nidB in runS.machs) {
-                        var mmB = runS.machs[nidB];
-                        if ((mmB.audit != null) && (mmB.audit.length > 0) && (grp.machines[nidB] != null)) { broken.push(grp.machines[nidB]); }
-                    }
-                }
-            } catch (eB) { }
-            if (broken.length > 0) {
-                x += '<div style="margin-bottom:6px;padding:6px;border:1px solid #d80;border-radius:4px;background:#fff8ee"><span style="color:#a60"><b>⚠ Stato dpkg incoerente</b> su: ' + EscapeHtml(broken.join(', ')) + '</span> — ci sono dipendenze insoddisfatte (dpkg --audit non vuoto). Il piano potrebbe non elencarle tutte: esegui <code>sudo apt --fix-broken install</code> sulla macchina, o installa comunque il piano (porta anche le dipendenze mancanti).</div>';
-            }
-            // v2.2.5: la tabella del piano e' IDENTICA per linux e windows;
-            // il blocco install-machines e il footer restano solo linux.
-            var isLinux = (grp.os == 'linux');
-            if ((grp.updates == null) || (grp.updates.length == 0)) {
-                if (!isLinux) { x += '<div style="color:#888;padding:6px">Per ' + EscapeHtml(grp.distro) + ' nessun aggiornamento mancante nel catalogo per questa release: tutte le macchine del gruppo risultano aggiornate (o il catalogo non risponde — vedi «Ricalcola piano» e Log).</div>'; }
-                else { x += '<div style="color:#080;padding:6px">Tutte le macchine del gruppo sono aggiornate.</div>'; }
-                w.innerHTML = x; return;
-            }
-            var nMiss = 0;
-            // v2.0.9: SELEZIONE MACCHINE per gruppo (non tutte insieme:
-            // aggiornamenti scaglionati). Default: tutte spunte.
-            if (window.pkgmanagerOsPlanMachSel == null) { window.pkgmanagerOsPlanMachSel = {}; }
-            if (window.pkgmanagerOsPlanMachSel[window.pkgmanagerOsPlanSel] == null) { window.pkgmanagerOsPlanMachSel[window.pkgmanagerOsPlanSel] = {}; }
-            var msel = window.pkgmanagerOsPlanMachSel[window.pkgmanagerOsPlanSel];
-            var onlineMap = {};
-            try { for (var oi in nodes) { var n0 = nodes[oi]; if (n0 && n0._id && ((n0.conn & 1) != 0)) { onlineMap[n0._id] = 1; } } } catch (e0) { }
-            if (isLinux) { x += '<div style="margin-bottom:8px;padding:6px;border:1px solid #ddd;border-radius:4px"><b>Macchine del gruppo (installazione)</b> — <a href=# onclick="pluginHandler.pkgmanager.pkgOsPlanMachSelAll(true);return false">tutte</a> / <a href=# onclick="pluginHandler.pkgmanager.pkgOsPlanMachSelAll(false);return false">nessuna</a>';
-            var machIds = Object.keys(grp.machines);
-            for (var mx = 0; mx < machIds.length; mx++) {
-                var mid2 = machIds[mx];
-                if (msel[mid2] == null) { msel[mid2] = true; }
-                var isOn = (onlineMap[mid2] != null);
-                x += '<label style="display:block;padding:2px 0"><input type=checkbox class="pkgmanagerOsPlanMachCb" value="' + EscapeHtml(mid2) + '"' + (msel[mid2] ? ' checked' : '') + (isOn ? '' : ' title="al momento offline: l installazione su di lei verra rifiutata dal server"') + ' onchange="pluginHandler.pkgmanager.pkgOsPlanMachToggle()"> ' + EscapeHtml(grp.machines[mid2]) + (isOn ? ' <span style="color:#080;font-size:11px">online</span>' : ' <span style="color:#a60;font-size:11px">offline</span>') + '</label>';
-            }
-            x += '</div>';
-            } // v2.2.5: fine blocchetto install (solo linux)
-            x += '<div style="max-height:420px;overflow:auto">'; // v2.2.6: piano scrollabile
-            x += '<table style="border-collapse:collapse;width:100%">';
-            x += '<tr style="text-align:left;border-bottom:1px solid #ccc"><th style="padding:4px">Pacchetto</th><th style="padding:4px">Installata (min nel gruppo)</th><th style="padding:4px">Disponibile</th><th style="padding:4px">Dim.</th><th style="padding:4px">Sul server</th><th style="padding:4px">Motivo</th></tr>';
-            for (var u = 0; u < grp.updates.length; u++) {
-                var up = grp.updates[u];
-                var st = (up.inStore === true) ? '<span style="color:#080">✓ disponibile</span>' : '<span style="color:#a60">✗ mancante</span>';
-                if (up.inStore !== true) { nMiss++; }
-                var motivo = ((up.reason != null) && (up.reason != '')) ? up.reason : 'aggiornamento disponibile';
-                x += '<tr style="border-bottom:1px solid #eee"><td style="padding:4px">' + EscapeHtml(up.package) + '</td><td style="padding:4px;color:#888">' + EscapeHtml(up.installed || '—') + '</td><td style="padding:4px">' + EscapeHtml(up.version) + '</td><td style="padding:4px;color:#888">' + Math.round((up.size || 0) / 1024) + 'KB</td><td style="padding:4px">' + st + '</td><td style="padding:4px;color:#888;font-size:12px">' + EscapeHtml(motivo) + '</td></tr>';
-            }
-            x += '</table>';
-            x += '<div style="margin-top:4px;color:#888;font-size:12px">' + (grp.updates.length - nMiss) + ' già nello store · ' + nMiss + ' mancanti — ' + ((isLinux) ? '«Scarica i mancanti sul server» li recupera dai repo vendor; «Installa aggiornamenti» porta le macchine del gruppo alla stessa versione (la più recente). Nota: il conteggio può superare quello di <code>apt upgrade</code> perché include anche le NUOVE dipendenze richieste dalle versioni aggiornate (colonna Motivo).' : 'il download dei .msu selezionati avviene dal catalogo Microsoft nel riquadro «Pacchetti rilevati» (Scarica selezionati).') + '</div></div>'; // v2.2.6: chiusura scroll
-            w.innerHTML = x;
-            try { pluginHandler.pkgmanager.pkgOsSummaryRender(); } catch (e7) { } // v2.2.6
+            try { pluginHandler.pkgmanager.pkgOsSummaryRender(); } catch (e7) { }
         } catch (e) { console.log('pkgmanager osplan render failed: ' + e); }
     };
 
