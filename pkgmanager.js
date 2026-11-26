@@ -1,6 +1,11 @@
 /**
  * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
  *
+ *     v2.2.12 EXACT GRID: left = Macchine full-height column (600px);
+ *     right column split in half — top Pacchetti rilevati (300px), bottom
+ *     Avanzamento download fills the remainder (flex:1); Riassunto full
+ *     width underneath everything.
+ *
  *     v2.2.11 PLAN SECTION REMOVED: the "Piano aggiornamenti" group table
  *     is gone (the unified packages pane + summary replace it); the group
  *     selector stays on top, the dpkg-audit warning moved into the
@@ -461,7 +466,7 @@ module.exports.pkgmanager = function (parent) {
     var childProcess = null; try { childProcess = require('child_process'); } catch (e) { }
     var vmMod = null; try { vmMod = require('vm'); } catch (e) { }
     var obj = {};
-    obj.version = '2.2.11';
+    obj.version = '2.2.12';
         globalThis.__pkgmanagerActiveVersion = obj.version; // v2.1.7: versione ATTIVA (il vecchio modulo in cache dopo un install resta a ZONA, il reloadplugin la aggiorna)
     obj.fs = parent.fs;
     obj.path = parent.path;
@@ -2379,15 +2384,18 @@ module.exports.pkgmanager = function (parent) {
             var secHead = function (t, span) { return '<div style="background:#e8e8e8;border-bottom:1px solid #ddd;border-radius:6px 6px 0 0;padding:6px 10px;font-weight:bold">' + t + ((span != null) ? ' <span id="' + span + '" style="color:#888;font-weight:normal;font-size:12px"></span>' : '') + '</div>'; };
             // v2.2.8: Macchine e Pacchetti AFFIANCATI (due colonne flex), come nel layout a due riquadri
             x += '<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:stretch;margin-bottom:10px">';
-            // v2.2.10: colonna SINISTRA Macchine (tutta altezza), colonna
-            // DESTRA = Pacchetti rilevati (310px) + Avanzamento download
-            // (240px, scroll) — il resto delle sezioni sale su.
-            x += '<div style="flex:1;min-width:280px;border:1px solid #ddd;border-radius:6px">' + secHead('Macchine scansionate', 'pkgmanagerOsMachinesSummary') + '<div id="pkgmanagerOsMachines" style="font-size:12px;height:' + (secH + 170) + 'px;overflow:auto"></div></div>';
-            x += '<div style="flex:1.5;min-width:340px;display:flex;flex-direction:column;gap:10px">';
-            x += '<div style="border:1px solid #ddd;border-radius:6px">' + secHead('Pacchetti rilevati', 'pkgmanagerOsPkgsSummary') + '<div id="pkgmanagerOsPkgs" style="font-size:12px;height:310px;overflow:auto"></div><div id="pkgmanagerOsPkgsActions" style="padding:6px 10px"></div></div>';
-            x += '<div style="border:1px solid #ddd;border-radius:6px">' + secHead('Avanzamento download') + '<div id="pkgmanagerOsFetchProg" style="font-size:12px;height:240px;overflow:auto"></div></div>';
+            // v2.2.12: GEOMETRIA RICHIESTA — sinistra Macchine (colonna
+            // intera, 600px); destra in DUE META': sopra Pacchetti rilevati
+            // (300px = meta'), sotto Avanzamento download che RIEMPIE il
+            // resto (flex:1). Riassunto mancanti: sotto tutto, a tutta
+            // larghezza. Flex-stretch allinea le due colonne.
+            var topH = 600;
+            x += '<div style="flex:1;min-width:280px;border:1px solid #ddd;border-radius:6px;display:flex;flex-direction:column;height:' + topH + 'px">' + secHead('Macchine scansionate', 'pkgmanagerOsMachinesSummary') + '<div id="pkgmanagerOsMachines" style="font-size:12px;flex:1;overflow:auto"></div></div>';
+            x += '<div style="flex:1.5;min-width:340px;display:flex;flex-direction:column;gap:10px;height:' + topH + 'px">';
+            x += '<div style="border:1px solid #ddd;border-radius:6px;display:flex;flex-direction:column;height:300px">' + secHead('Pacchetti rilevati', 'pkgmanagerOsPkgsSummary') + '<div id="pkgmanagerOsPkgs" style="font-size:12px;flex:1;overflow:auto"></div><div id="pkgmanagerOsPkgsActions" style="padding:6px 10px"></div></div>';
+            x += '<div style="border:1px solid #ddd;border-radius:6px;display:flex;flex-direction:column;flex:1">' + secHead('Avanzamento download') + '<div id="pkgmanagerOsFetchProg" style="font-size:12px;flex:1;overflow:auto"></div></div>';
             x += '</div>';
-            x += '<div style="border:1px solid #ddd;border-radius:6px;margin-bottom:10px">' + secHead('Riassunto mancanti') + '<div id="pkgmanagerOsSummary" style="font-size:12px;height:220px;overflow:auto"></div></div>';
+            x += '<div style="border:1px solid #ddd;border-radius:6px;margin-bottom:10px">' + secHead('Riassunto mancanti') + '<div id="pkgmanagerOsSummary" style="font-size:12px;height:280px;overflow:auto"></div></div>';
             x += '<div id="pkgmanagerMsg" style="margin-top:10px;color:#888"></div>';
             m.innerHTML = x;
             pluginHandler.pkgmanager.pkgOsPlanRender();
