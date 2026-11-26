@@ -1,6 +1,11 @@
 /**
  * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
  *
+ *     v2.2.14 MACHINE SELECTION FOR INSTALL: checkboxes in «Macchine
+ *     scansionate» (default UNCHECKED, tutte/nessuna links, live counter)
+ *     drive «Installa aggiornamenti»: only checked+online machines get
+ *     the runcommands — no accidental fleet-wide updates.
+ *
  *     v2.2.13 MISSING ROW CLOSE: the flex row wrapping Macchine/Pacchetti
  *     was never closed, so Riassunto and the message div became flex
  *     children (summary showed up on the left). Row is closed now; a
@@ -471,7 +476,7 @@ module.exports.pkgmanager = function (parent) {
     var childProcess = null; try { childProcess = require('child_process'); } catch (e) { }
     var vmMod = null; try { vmMod = require('vm'); } catch (e) { }
     var obj = {};
-    obj.version = '2.2.13';
+    obj.version = '2.2.14';
         globalThis.__pkgmanagerActiveVersion = obj.version; // v2.1.7: versione ATTIVA (il vecchio modulo in cache dopo un install resta a ZONA, il reloadplugin la aggiorna)
     obj.fs = parent.fs;
     obj.path = parent.path;
@@ -750,7 +755,7 @@ module.exports.pkgmanager = function (parent) {
     setTimeout(function () { try { obj.ensureBinaries(); } catch (e) { obj.plog('ensureBinaries errore: ' + e); } }, 15000);
 
     // ---- Client-side (stringified into the browser) ----
-    obj.exports = ['onWebUIStartupEnd', 'pkgSidebarInject', 'pkgRequestList', 'pkgList', 'pkgCompose', 'pkgTableHtml', 'pkgTargetOs', 'pkgDevToggle', 'pkgDevSelectAll', 'pkgDevOsFilter', 'pkgDevListRender', 'pkgSelectedNodes', 'pkgSidebarOpen', 'pkgSidebarRenderDevices', 'pkgSidebarRender', 'pkgPkgToggle', 'pkgPkgSelectAll', 'pkgPkgSummary', 'pkgBatchRun', 'pkgOsScan', 'pkgOsImportManifest', 'pkgOsExportDownloader', 'pkgOsExportGo', 'pkgDownloaderReady', 'pkgOsScanPoll', 'pkgOsScanParse', 'pkgOsScanRender', 'pkgOsScanExport', 'pkgOsSidebarOpen', 'pkgOsRender', 'pkgOsMachinesRender', 'pkgOsPkgsRender', 'pkgOsPkgsToggle', 'pkgOsPkgsSelAll', 'pkgOsTable', 'pkgOsKind', 'pkgOsAdminOpen', 'pkgIsOsView', 'pkgInstall', 'pkgRunOn', 'goPageStart', 'pkgMsg', 'pkgTabSetActive', 'pkgAdminOpen', 'pkgAdminRender', 'pkgCreateOpen', 'pkgCreateRender', 'pkgCreateCurOs', 'pkgCreateDefaultType', 'pkgCreateFieldSync', 'pkgCreateDraftSync', 'pkgCreateOsChange', 'pkgCreateOsHint', 'pkgCreateUpload', 'pkgCreateArtifactDel', 'pkgCreatePreset', 'pkgCreateInsert', 'pkgCreateSave', 'pkgCreateCheckId', 'pkgCreateCatalogArrived', 'pkgAdminAdd', 'pkgAdminEdit', 'pkgAdminForm', 'pkgAdminCurOs', 'pkgAdminFieldSync', 'pkgAdminDraftSync', 'pkgAdminOsChange', 'pkgAdminOsHint', 'pkgAdminSave', 'pkgAdminDelete', 'pkgAdminUpload', 'pkgAdminUploadDo', 'pkgAdminArtifactDel', 'pkgAdminStatus', 'pkgAdminRefresh', 'pkgAdminOsFilter', 'pkgBinBanner', 'pkgOsPluginOpen', 'pkgOsPluginRender', 'pkgUpdateOnline', 'pkgUpdateFile', 'pkgRestartNow', 'pkgAgentBuild', 'pkgAgentBuildRequest', 'pkgBinStatus', 'pkgBinStatusRequest', 'pkgBinRetry', 'pkgLogTail', 'pkgLogTailRequest', 'pkgUpdateUpload', 'pkgUpdateInfo', 'pkgUpdateApplied', 'pkgDenied', 'pkgD2WrapOnMessage', 'pkgD2Pending', 'pkgD2Receive', 'pkgD2PollSummary', 'pkgOsPlan', 'pkgOsPlanRender', 'pkgOsPlanSelChange', 'pkgOsSummaryRender', 'pkgOsFetchProgress', 'pkgOsFetchProgRender', 'pkgOsPlanRequest', 'pkgOsPlanDownload', 'pkgOsPlanInstall', 'pkgOsPlanMachToggle', 'pkgOsPlanMachSelAll', 'pkgOsStoreRequest', 'pkgOsStoreList', 'pkgOsStoreSelChange', 'pkgOsStoreDel'];
+    obj.exports = ['onWebUIStartupEnd', 'pkgSidebarInject', 'pkgRequestList', 'pkgList', 'pkgCompose', 'pkgTableHtml', 'pkgTargetOs', 'pkgDevToggle', 'pkgDevSelectAll', 'pkgDevOsFilter', 'pkgDevListRender', 'pkgSelectedNodes', 'pkgSidebarOpen', 'pkgSidebarRenderDevices', 'pkgSidebarRender', 'pkgPkgToggle', 'pkgPkgSelectAll', 'pkgPkgSummary', 'pkgBatchRun', 'pkgOsScan', 'pkgOsImportManifest', 'pkgOsExportDownloader', 'pkgOsExportGo', 'pkgDownloaderReady', 'pkgOsScanPoll', 'pkgOsScanParse', 'pkgOsScanRender', 'pkgOsScanExport', 'pkgOsSidebarOpen', 'pkgOsRender', 'pkgOsMachinesRender', 'pkgOsPkgsRender', 'pkgOsPkgsToggle', 'pkgOsPkgsSelAll', 'pkgOsTable', 'pkgOsKind', 'pkgOsAdminOpen', 'pkgIsOsView', 'pkgInstall', 'pkgRunOn', 'goPageStart', 'pkgMsg', 'pkgTabSetActive', 'pkgAdminOpen', 'pkgAdminRender', 'pkgCreateOpen', 'pkgCreateRender', 'pkgCreateCurOs', 'pkgCreateDefaultType', 'pkgCreateFieldSync', 'pkgCreateDraftSync', 'pkgCreateOsChange', 'pkgCreateOsHint', 'pkgCreateUpload', 'pkgCreateArtifactDel', 'pkgCreatePreset', 'pkgCreateInsert', 'pkgCreateSave', 'pkgCreateCheckId', 'pkgCreateCatalogArrived', 'pkgAdminAdd', 'pkgAdminEdit', 'pkgAdminForm', 'pkgAdminCurOs', 'pkgAdminFieldSync', 'pkgAdminDraftSync', 'pkgAdminOsChange', 'pkgAdminOsHint', 'pkgAdminSave', 'pkgAdminDelete', 'pkgAdminUpload', 'pkgAdminUploadDo', 'pkgAdminArtifactDel', 'pkgAdminStatus', 'pkgAdminRefresh', 'pkgAdminOsFilter', 'pkgBinBanner', 'pkgOsPluginOpen', 'pkgOsPluginRender', 'pkgUpdateOnline', 'pkgUpdateFile', 'pkgRestartNow', 'pkgAgentBuild', 'pkgAgentBuildRequest', 'pkgBinStatus', 'pkgBinStatusRequest', 'pkgBinRetry', 'pkgLogTail', 'pkgLogTailRequest', 'pkgUpdateUpload', 'pkgUpdateInfo', 'pkgUpdateApplied', 'pkgDenied', 'pkgD2WrapOnMessage', 'pkgD2Pending', 'pkgD2Receive', 'pkgD2PollSummary', 'pkgOsPlan', 'pkgOsPlanRender', 'pkgOsPlanSelChange', 'pkgOsSummaryRender', 'pkgOsMachCountRefresh', 'pkgOsMachToggle', 'pkgOsMachSelAll', 'pkgOsFetchProgress', 'pkgOsFetchProgRender', 'pkgOsPlanRequest', 'pkgOsPlanDownload', 'pkgOsPlanInstall', 'pkgOsPlanMachToggle', 'pkgOsPlanMachSelAll', 'pkgOsStoreRequest', 'pkgOsStoreList', 'pkgOsStoreSelChange', 'pkgOsStoreDel'];
 
     obj.onWebUIStartupEnd = function () {
         try {
@@ -2510,7 +2515,7 @@ module.exports.pkgmanager = function (parent) {
             if (el == null) return;
             var run = window.pkgmanagerOsScan;
             if ((run == null) || (run.machs == null)) { el.innerHTML = '<div style="color:#888">Premi «Scansiona macchine».</div>'; return; }
-            var x = '';
+            var x = '<div style="padding:2px 0 4px 0">Selezionate: <b id="pkgmanagerOsMachSelCount">0</b> — <a href=# onclick="pluginHandler.pkgmanager.pkgOsMachSelAll(true);return false">tutte</a> / <a href=# onclick="pluginHandler.pkgmanager.pkgOsMachSelAll(false);return false">nessuna</a></div>';
             var n = 0;
             for (var nid in run.machs) {
                 var mm = run.machs[nid];
@@ -2521,13 +2526,51 @@ module.exports.pkgmanager = function (parent) {
                 else if (((mm.os == 'windows') || (mm.os == 'macos')) && ((info != null) && (info.length > 1) && (info[1] != null) && (info[1] != ''))) { osLabel += ' ' + info[1]; } // v2.2.3: versione OS nella riga
                 var audit = ((mm.audit != null) && (mm.audit.length > 0)) ? ' <span style="color:#a60" title="' + EscapeHtml(mm.audit.join('; ')) + '">⚠ dpkg</span>' : '';
                 var stato = ((mm.got == true) ? '<span style="color:#080">inventario ✓</span>' : '<span style="color:#888">in attesa…</span>');
-                x += '<div style="padding:2px 0;border-bottom:1px solid #f2f2f2"><b>' + EscapeHtml(mm.name || nid) + '</b> <span style="color:#888">· ' + osLabel + '</span>' + audit + '<br><span style="color:#888;font-size:11px">' + (((mm.items != null) && (mm.got == true)) ? (mm.items.length + ' voci inventario · ') : '') + stato + '</span></div>';
+                // v2.2.14: checkbox di SELEZIONE per l'installazione — default
+                // NON spuntata: si aggiornano solo le macchine scelte a mano
+                // (gruppo ristretto prima del rollout).
+                if (window.pkgmanagerOsMachSel == null) { window.pkgmanagerOsMachSel = {}; }
+                var on = (window.pkgmanagerOsMachSel[nid] === true);
+                x += '<div style="padding:2px 0;border-bottom:1px solid #f2f2f2"><label style="display:flex;gap:6px;align-items:flex-start;cursor:pointer"><input type=checkbox data-mid="' + EscapeHtml(nid) + '"' + (on ? ' checked' : '') + ' onchange="pluginHandler.pkgmanager.pkgOsMachToggle(this)"><span><b>' + EscapeHtml(mm.name || nid) + '</b> <span style="color:#888">· ' + osLabel + '</span>' + audit + '<br><span style="color:#888;font-size:11px">' + (((mm.items != null) && (mm.got == true)) ? (mm.items.length + ' voci inventario · ') : '') + stato + '</span></span></label></div>';
             }
             if (n == 0) { x = '<div style="color:#888">Nessuna macchina nella scansione.</div>'; }
             el.innerHTML = x;
             var msum2 = document.getElementById('pkgmanagerOsMachinesSummary');
             if (msum2 != null) { var t2 = 0, g2 = 0; for (var nm2 in run.machs) { t2++; if (run.machs[nm2].got) { g2++; } } msum2.innerText = '(' + g2 + '/' + t2 + ' inventari ok)'; }
             try { pluginHandler.pkgmanager.pkgOsSummaryRender(); } catch (e5) { } // v2.2.6
+            pluginHandler.pkgmanager.pkgOsMachCountRefresh(); // v2.2.14
+        } catch (e) { }
+    };
+
+    // v2.2.14: SELEZIONE MACCHINE per l'installazione — stato globale per
+    // nid, default NON spuntata. Install = solo le spuntate (e online).
+    obj.pkgOsMachCountRefresh = function () {
+        try {
+            var el = document.getElementById('pkgmanagerOsMachSelCount');
+            if (el == null) return;
+            var cnt = 0;
+            if (window.pkgmanagerOsMachSel != null) { for (var k in window.pkgmanagerOsMachSel) { if (window.pkgmanagerOsMachSel[k] === true) { cnt++; } } }
+            el.innerText = String(cnt);
+        } catch (e) { }
+    };
+
+    obj.pkgOsMachToggle = function (cb) {
+        try {
+            var nid = cb.getAttribute('data-mid');
+            if (nid == null) return;
+            if (window.pkgmanagerOsMachSel == null) { window.pkgmanagerOsMachSel = {}; }
+            window.pkgmanagerOsMachSel[nid] = (cb.checked === true);
+            pluginHandler.pkgmanager.pkgOsMachCountRefresh();
+        } catch (e) { }
+    };
+
+    obj.pkgOsMachSelAll = function (on) {
+        try {
+            var run = window.pkgmanagerOsScan;
+            if ((run == null) || (run.machs == null)) { return; }
+            if (window.pkgmanagerOsMachSel == null) { window.pkgmanagerOsMachSel = {}; }
+            for (var nid in run.machs) { window.pkgmanagerOsMachSel[nid] = (on === true); }
+            pluginHandler.pkgmanager.pkgOsMachinesRender();
         } catch (e) { }
     };
 
@@ -2737,16 +2780,22 @@ module.exports.pkgmanager = function (parent) {
             var cmd = parts.join(' && ');
             // v2.0.9: solo le macchine SCELTE (checkbox per gruppo) e online;
             // offline vengono segnalate ma escluse (il server rifiuterebbe).
-            var picked = [], skippedOff = [];
-            var msel2 = ((window.pkgmanagerOsPlanMachSel != null) && (window.pkgmanagerOsPlanMachSel[selKey] != null)) ? window.pkgmanagerOsPlanMachSel[selKey] : {};
+            var picked = [], skippedOff = [], notSel = [];
+            // v2.2.14: SELEZIONE ESPLICITA dalle checkbox di «Macchine
+            // scansionate» (default nessuna): nessun aggiornamento di massa
+            // accidentale.
+            var msel2 = (window.pkgmanagerOsMachSel != null) ? window.pkgmanagerOsMachSel : {};
             var onlineMap2 = {};
             try { for (var oi2 in nodes) { var n2 = nodes[oi2]; if (n2 && n2._id && ((n2.conn & 1) != 0)) { onlineMap2[n2._id] = 1; } } } catch (e0) { }
             for (var nid3 in grp.machines) {
-                if (msel2[nid3] === false) { continue; }
+                if (msel2[nid3] !== true) { notSel.push(grp.machines[nid3]); continue; }
                 if (onlineMap2[nid3] != null) { picked.push(nid3); } else { skippedOff.push(grp.machines[nid3]); }
             }
             var online = picked;
-            if (online.length == 0) { pluginHandler.pkgmanager.pkgMsg('Nessuna macchina selezionata online' + ((skippedOff.length > 0) ? (' (' + skippedOff.join(', ') + ' offline)') : '') + ' — spunta le macchine da aggiornare (online) e riprova.'); return; }
+            if (online.length == 0) {
+                pluginHandler.pkgmanager.pkgMsg('Nessuna macchina da aggiornare: spunta le macchine in «Macchine scansionate» (tutte/nessuna nell intestatura del riquadro)' + ((notSel.length > 0) ? (' — non selezionate: ' + notSel.join(', ')) : '') + ((skippedOff.length > 0) ? (' — selezionate ma OFFLINE: ' + skippedOff.join(', ')) : '') + '.');
+                return;
+            }
             var hasD2Dialog = (typeof d2runBegin == 'function');
             var responseid = hasD2Dialog ? d2runBegin(online) : pluginHandler.pkgmanager.pkgD2Pending(online);
             meshserver.send({ action: 'runcommands', nodeids: online, type: 3, cmds: cmd, runAsUser: 0, reply: true, responseid: responseid, timeout: 1800 });
