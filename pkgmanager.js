@@ -1,6 +1,10 @@
 /**
  * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
  *
+ *     v2.2.9 PAGE-LEVEL SCROLL: the plugin page itself scrolls
+ *     (max-height calc(100vh - 130px), overflow-y auto) so every
+ *     section/report stays reachable regardless of core container styles.
+ *
  *     v2.2.8 SIDE-BY-SIDE TOP PANES: Macchine scansionate and Pacchetti
  *     rilevati go back to a flex row (1 : 1.5), as two fixed sections;
  *     the rest of the v2.2.7 stack is unchanged.
@@ -445,7 +449,7 @@ module.exports.pkgmanager = function (parent) {
     var childProcess = null; try { childProcess = require('child_process'); } catch (e) { }
     var vmMod = null; try { vmMod = require('vm'); } catch (e) { }
     var obj = {};
-    obj.version = '2.2.8';
+    obj.version = '2.2.9';
         globalThis.__pkgmanagerActiveVersion = obj.version; // v2.1.7: versione ATTIVA (il vecchio modulo in cache dopo un install resta a ZONA, il reloadplugin la aggiorna)
     obj.fs = parent.fs;
     obj.path = parent.path;
@@ -841,7 +845,10 @@ module.exports.pkgmanager = function (parent) {
             var page = document.createElement('div');
             page.id = 'pkgmanagerMainWrap';
             page.style.display = 'none';
-            page.innerHTML = '<div id="pkgmanagerMain" style="padding:12px;font-family:Arial,Helvetica,sans-serif"></div>';
+            // v2.2.9: la PAGINA INTERA della vista e' scrollabile (max-height
+            // sul viewport): le sezioni interne restano a altezza fissa, ma
+            // l'utente puo' scorrere l'intera pagina per leggere i report.
+            page.innerHTML = '<div id="pkgmanagerMain" style="padding:12px;font-family:Arial,Helvetica,sans-serif;max-height:calc(100vh - 130px);overflow-y:auto"></div>';
             col.appendChild(page);
             // TOP GRAY BAR: the classic template HIDES #MainMenuSpan and shows
             // the per-device tabs (General/Desktop/Files) in #MainSubMenuSpan.

@@ -2,8 +2,10 @@
 
 A [MeshCentral](https://github.com/Ylianst/MeshCentral) plugin for **remote package installation** on Windows, Linux and macOS agents. Catalog-driven, with **airgap installs** (devices never touch the internet: artifacts are downloaded from the MeshCentral server itself over the LAN).
 
-Current version: **2.2.8** — requires MeshCentral **1.3.1**
+Current version: **2.2.9** — requires MeshCentral **1.3.1**
 
+> **2.2.9**: the whole «Aggiornamenti OS» page scrolls (viewport-height wrapper with its own scrollbar), so every section and report stays reachable; sections keep their fixed heights and internal scrolling.
+>
 > **2.2.8**: «Macchine scansionate» and «Pacchetti rilevati» are side by side again (flex row 1:1.5), as fixed-height sections; the rest of the v2.2.7 stack (Avanzamento download, Piano, Riassunto) is unchanged.
 >
 > **2.2.7**: the OS view is a stack of fixed-position sections (dropdown selector on top, then Macchine scansionate · Pacchetti rilevati · NEW Avanzamento download · Piano · Riassunto mancanti at the bottom), each with a fixed height and its own internal scroll — content no longer shifts the layout, the page scrolls freely. osfetch reports per-file download progress (bar, done/total, per-file ok/fail lines) to the new section.
