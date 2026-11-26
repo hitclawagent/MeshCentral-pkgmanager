@@ -1,6 +1,10 @@
 /**
  * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
  *
+ *     v2.2.18 SELF-CONTAINED INSTALL: the Windows install flow is inlined
+ *     inside pkgOsPlanInstall (no cross-function call) — a version-skewed
+ *     browser can no longer hit "pkgOsInstallWindows is not a function".
+ *
  *     v2.2.17 CLIENT/SERVER VERSION HANDSHAKE: after an update+restart the
  *     browser keeps running the OLD plugin client code (the SPA never
  *     re-fetches pluginHandler.js) -> mysterious "not a function" errors
@@ -500,8 +504,8 @@ module.exports.pkgmanager = function (parent) {
     // in memoria il pluginHandler vecchio dopo un update+restart del server
     // (la pagina non ri-scarica pluginHandler.js da sola). pkgList confronta
     // message.pluginVersion con questa costante e forza UN solo reload.
-    obj.pkgClientVersion = function () { return '2.2.17'; };
-    obj.version = '2.2.17';
+    obj.pkgClientVersion = function () { return '2.2.18'; };
+    obj.version = '2.2.18';
         globalThis.__pkgmanagerActiveVersion = obj.version; // v2.1.7: versione ATTIVA (il vecchio modulo in cache dopo un install resta a ZONA, il reloadplugin la aggiorna)
     obj.fs = parent.fs;
     obj.path = parent.path;
@@ -780,7 +784,7 @@ module.exports.pkgmanager = function (parent) {
     setTimeout(function () { try { obj.ensureBinaries(); } catch (e) { obj.plog('ensureBinaries errore: ' + e); } }, 15000);
 
     // ---- Client-side (stringified into the browser) ----
-    obj.exports = ['onWebUIStartupEnd', 'pkgSidebarInject', 'pkgRequestList', 'pkgList', 'pkgCompose', 'pkgTableHtml', 'pkgTargetOs', 'pkgDevToggle', 'pkgDevSelectAll', 'pkgDevOsFilter', 'pkgDevListRender', 'pkgSelectedNodes', 'pkgSidebarOpen', 'pkgSidebarRenderDevices', 'pkgSidebarRender', 'pkgPkgToggle', 'pkgPkgSelectAll', 'pkgPkgSummary', 'pkgBatchRun', 'pkgOsScan', 'pkgOsImportManifest', 'pkgOsExportDownloader', 'pkgOsExportGo', 'pkgDownloaderReady', 'pkgOsScanPoll', 'pkgOsScanParse', 'pkgOsScanRender', 'pkgOsScanExport', 'pkgOsSidebarOpen', 'pkgOsRender', 'pkgOsMachinesRender', 'pkgOsPkgsRender', 'pkgOsPkgsToggle', 'pkgOsPkgsSelAll', 'pkgOsTable', 'pkgOsKind', 'pkgOsAdminOpen', 'pkgIsOsView', 'pkgInstall', 'pkgRunOn', 'goPageStart', 'pkgMsg', 'pkgTabSetActive', 'pkgAdminOpen', 'pkgAdminRender', 'pkgCreateOpen', 'pkgCreateRender', 'pkgCreateCurOs', 'pkgCreateDefaultType', 'pkgCreateFieldSync', 'pkgCreateDraftSync', 'pkgCreateOsChange', 'pkgCreateOsHint', 'pkgCreateUpload', 'pkgCreateArtifactDel', 'pkgCreatePreset', 'pkgCreateInsert', 'pkgCreateSave', 'pkgCreateCheckId', 'pkgCreateCatalogArrived', 'pkgAdminAdd', 'pkgAdminEdit', 'pkgAdminForm', 'pkgAdminCurOs', 'pkgAdminFieldSync', 'pkgAdminDraftSync', 'pkgAdminOsChange', 'pkgAdminOsHint', 'pkgAdminSave', 'pkgAdminDelete', 'pkgAdminUpload', 'pkgAdminUploadDo', 'pkgAdminArtifactDel', 'pkgAdminStatus', 'pkgAdminRefresh', 'pkgAdminOsFilter', 'pkgBinBanner', 'pkgOsPluginOpen', 'pkgOsPluginRender', 'pkgUpdateOnline', 'pkgUpdateFile', 'pkgRestartNow', 'pkgAgentBuild', 'pkgAgentBuildRequest', 'pkgBinStatus', 'pkgBinStatusRequest', 'pkgBinRetry', 'pkgLogTail', 'pkgLogTailRequest', 'pkgUpdateUpload', 'pkgUpdateInfo', 'pkgUpdateApplied', 'pkgDenied', 'pkgD2WrapOnMessage', 'pkgD2Pending', 'pkgD2Receive', 'pkgD2PollSummary', 'pkgOsPlan', 'pkgOsPlanRender', 'pkgOsPlanSelChange', 'pkgOsSummaryRender', 'pkgOsMachCountRefresh', 'pkgOsMachToggle', 'pkgOsMachSelAll', 'pkgOsInstallWindows', 'pkgOsFetchProgress', 'pkgClientVersion', 'pkgAutoRestartCheck', 'pkgConfigInvariantCheck', 'pkgArtifactInfo', 'pkgDownloaderBin', 'pkgOsFetchProgRender', 'pkgOsPlanRequest', 'pkgOsPlanDownload', 'pkgOsPlanInstall', 'pkgOsPlanMachToggle', 'pkgOsPlanMachSelAll', 'pkgOsStoreRequest', 'pkgOsStoreList', 'pkgOsStoreSelChange', 'pkgOsStoreDel'];
+    obj.exports = ['onWebUIStartupEnd', 'pkgSidebarInject', 'pkgRequestList', 'pkgList', 'pkgCompose', 'pkgTableHtml', 'pkgTargetOs', 'pkgDevToggle', 'pkgDevSelectAll', 'pkgDevOsFilter', 'pkgDevListRender', 'pkgSelectedNodes', 'pkgSidebarOpen', 'pkgSidebarRenderDevices', 'pkgSidebarRender', 'pkgPkgToggle', 'pkgPkgSelectAll', 'pkgPkgSummary', 'pkgBatchRun', 'pkgOsScan', 'pkgOsImportManifest', 'pkgOsExportDownloader', 'pkgOsExportGo', 'pkgDownloaderReady', 'pkgOsScanPoll', 'pkgOsScanParse', 'pkgOsScanRender', 'pkgOsScanExport', 'pkgOsSidebarOpen', 'pkgOsRender', 'pkgOsMachinesRender', 'pkgOsPkgsRender', 'pkgOsPkgsToggle', 'pkgOsPkgsSelAll', 'pkgOsTable', 'pkgOsKind', 'pkgOsAdminOpen', 'pkgIsOsView', 'pkgInstall', 'pkgRunOn', 'goPageStart', 'pkgMsg', 'pkgTabSetActive', 'pkgAdminOpen', 'pkgAdminRender', 'pkgCreateOpen', 'pkgCreateRender', 'pkgCreateCurOs', 'pkgCreateDefaultType', 'pkgCreateFieldSync', 'pkgCreateDraftSync', 'pkgCreateOsChange', 'pkgCreateOsHint', 'pkgCreateUpload', 'pkgCreateArtifactDel', 'pkgCreatePreset', 'pkgCreateInsert', 'pkgCreateSave', 'pkgCreateCheckId', 'pkgCreateCatalogArrived', 'pkgAdminAdd', 'pkgAdminEdit', 'pkgAdminForm', 'pkgAdminCurOs', 'pkgAdminFieldSync', 'pkgAdminDraftSync', 'pkgAdminOsChange', 'pkgAdminOsHint', 'pkgAdminSave', 'pkgAdminDelete', 'pkgAdminUpload', 'pkgAdminUploadDo', 'pkgAdminArtifactDel', 'pkgAdminStatus', 'pkgAdminRefresh', 'pkgAdminOsFilter', 'pkgBinBanner', 'pkgOsPluginOpen', 'pkgOsPluginRender', 'pkgUpdateOnline', 'pkgUpdateFile', 'pkgRestartNow', 'pkgAgentBuild', 'pkgAgentBuildRequest', 'pkgBinStatus', 'pkgBinStatusRequest', 'pkgBinRetry', 'pkgLogTail', 'pkgLogTailRequest', 'pkgUpdateUpload', 'pkgUpdateInfo', 'pkgUpdateApplied', 'pkgDenied', 'pkgD2WrapOnMessage', 'pkgD2Pending', 'pkgD2Receive', 'pkgD2PollSummary', 'pkgOsPlan', 'pkgOsPlanRender', 'pkgOsPlanSelChange', 'pkgOsSummaryRender', 'pkgOsMachCountRefresh', 'pkgOsMachToggle', 'pkgOsMachSelAll', 'pkgOsFetchProgress', 'pkgClientVersion', 'pkgAutoRestartCheck', 'pkgConfigInvariantCheck', 'pkgArtifactInfo', 'pkgDownloaderBin', 'pkgOsFetchProgRender', 'pkgOsPlanRequest', 'pkgOsPlanDownload', 'pkgOsPlanInstall', 'pkgOsPlanMachToggle', 'pkgOsPlanMachSelAll', 'pkgOsStoreRequest', 'pkgOsStoreList', 'pkgOsStoreSelChange', 'pkgOsStoreDel'];
 
     obj.onWebUIStartupEnd = function () {
         try {
@@ -2730,53 +2734,6 @@ module.exports.pkgmanager = function (parent) {
     // di «Macchine scansionate») e online: scarica i .msu dallo store del
     // server (pkgstore.ashx), verifica SHA384, lancia wusa /quiet /norestart.
     // Esiti per KB via stdout (dialogo d2): OK / RIAVVIO / gia installato / ERR.
-    obj.pkgOsInstallWindows = function (grp) {
-        try {
-            var have = [];
-            for (var i = 0; i < grp.updates.length; i++) { var u = grp.updates[i]; if ((u.inStore === true) && (u.sha384 != null)) { have.push(u); } }
-            if (have.length == 0) { pluginHandler.pkgmanager.pkgMsg('Nessun .msu nello store per questo gruppo: prima «Scarica selezionati» nel riquadro Pacchetti rilevati, poi installa.'); return; }
-            if (window.pkgmanagerToken == null) { pluginHandler.pkgmanager.pkgMsg('Token store non disponibile — attendi il caricamento del catalogo e riprova.'); return; }
-            var msel = (window.pkgmanagerOsMachSel != null) ? window.pkgmanagerOsMachSel : {};
-            var picked = [], skippedOff = [], notSel = [];
-            var onlineMap = {};
-            try { for (var oi in nodes) { var n = nodes[oi]; if (n && n._id && ((n.conn & 1) != 0)) { onlineMap[n._id] = 1; } } } catch (e0) { }
-            for (var nid in grp.machines) {
-                if (msel[nid] !== true) { notSel.push(grp.machines[nid]); continue; }
-                if (onlineMap[nid] != null) { picked.push(nid); } else { skippedOff.push(grp.machines[nid]); }
-            }
-            if (picked.length == 0) { pluginHandler.pkgmanager.pkgMsg('Nessuna macchina da aggiornare: spunta le macchine in «Macchine scansionate»' + ((notSel.length > 0) ? (' — non selezionate: ' + notSel.join(', ')) : '') + ((skippedOff.length > 0) ? (' — selezionate ma OFFLINE: ' + skippedOff.join(', ')) : '') + '.'); return; }
-            var base = location.origin + '/pkgstore.ashx?t=' + encodeURIComponent(window.pkgmanagerToken) + '&p=' + encodeURIComponent(grp.storeDirName + '/');
-            var fl = [];
-            for (var j = 0; j < have.length; j++) { fl.push("@{n='" + have[j].file + "';s='" + have[j].sha384 + "'}"); }
-            var ps = [
-                "$ErrorActionPreference='Continue'",
-                "[Net.ServicePointManager]::ServerCertificateValidationCallback={ $true }",
-                "[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12",
-                "$files=@(" + fl.join(',') + ")",
-                "$base='" + base + "'",
-                "foreach($f in $files){",
-                " $o=Join-Path $env:TEMP $f.n",
-                " try{",
-                "  Invoke-WebRequest -Uri ($base+[uri]::EscapeDataString($f.n)) -OutFile $o -UseBasicParsing",
-                "  $h=(Get-FileHash $o -Algorithm SHA384).Hash.ToLower()",
-                "  if($h -ne $f.s){Write-Output ($f.n+': ERR sha384 non corrisponde');continue}",
-                "  $p=Start-Process wusa.exe -ArgumentList ('\"'+$o+'\" /quiet /norestart') -Wait -PassThru",
-                "  $c=$p.ExitCode",
-                "  if($c -eq 0){Write-Output ($f.n+': OK')}",
-                "  elseif($c -eq 3010){Write-Output ($f.n+': OK - RIAVVIO NECESSARIO')}",
-                "  elseif($c -eq 2359302){Write-Output ($f.n+': gia installato')}",
-                "  else{Write-Output ($f.n+': ERR wusa '+$c)}",
-                " }catch{Write-Output ($f.n+': ERR '+$_.Exception.Message)}",
-                "}"
-            ].join('; ');
-            var hasD2Dialog = (typeof d2runBegin == 'function');
-            var responseid = hasD2Dialog ? d2runBegin(picked) : pluginHandler.pkgmanager.pkgD2Pending(picked);
-            meshserver.send({ action: 'runcommands', nodeids: picked, type: 2, cmds: ps, runAsUser: 0, reply: true, responseid: responseid, timeout: 1800 });
-            pluginHandler.pkgmanager.pkgMsg('Installazione Windows avviata su ' + picked.length + ' macchina/e (' + have.length + ' .msu, /norestart — il riavvio resta manuale)' + ((skippedOff.length > 0) ? (' — offline saltate: ' + skippedOff.join(', ')) : '') + (hasD2Dialog ? ' — output nel dialogo dei risultati.' : ' — riepilogo qui a fine esecuzione.'));
-            if (!hasD2Dialog) { pluginHandler.pkgmanager.pkgD2PollSummary(responseid, Date.now(), 'Installazione Windows completata', 2040000); }
-        } catch (e) { pluginHandler.pkgmanager.pkgMsg('Install Windows fallita: ' + e); }
-    };
-
     obj.pkgOsPlanMachToggle = function () {
         try {
             var selKey = window.pkgmanagerOsPlanSel;
@@ -2855,7 +2812,55 @@ module.exports.pkgmanager = function (parent) {
             var selKey = window.pkgmanagerOsPlanSel;
             if ((plan == null) || (selKey == null) || (plan.groups[selKey] == null)) { pluginHandler.pkgmanager.pkgMsg('Nessun piano: fai «Scansiona macchine».'); return; }
             var grp = plan.groups[selKey];
-            if (grp.os == 'windows') { obj.pkgOsInstallWindows(grp); return; }
+            // v2.2.18: l'installazione Windows e' INLINE (niente chiamata a
+            // funzioni esterne): se il client in memoria e' de-syncronizzato
+            // non puo' piu' fallire con "not a function" su questa via.
+            if (grp.os == 'windows') {
+        try {
+            var have = [];
+            for (var i = 0; i < grp.updates.length; i++) { var u = grp.updates[i]; if ((u.inStore === true) && (u.sha384 != null)) { have.push(u); } }
+            if (have.length == 0) { pluginHandler.pkgmanager.pkgMsg('Nessun .msu nello store per questo gruppo: prima «Scarica selezionati» nel riquadro Pacchetti rilevati, poi installa.'); return; }
+            if (window.pkgmanagerToken == null) { pluginHandler.pkgmanager.pkgMsg('Token store non disponibile — attendi il caricamento del catalogo e riprova.'); return; }
+            var msel = (window.pkgmanagerOsMachSel != null) ? window.pkgmanagerOsMachSel : {};
+            var picked = [], skippedOff = [], notSel = [];
+            var onlineMap = {};
+            try { for (var oi in nodes) { var n = nodes[oi]; if (n && n._id && ((n.conn & 1) != 0)) { onlineMap[n._id] = 1; } } } catch (e0) { }
+            for (var nid in grp.machines) {
+                if (msel[nid] !== true) { notSel.push(grp.machines[nid]); continue; }
+                if (onlineMap[nid] != null) { picked.push(nid); } else { skippedOff.push(grp.machines[nid]); }
+            }
+            if (picked.length == 0) { pluginHandler.pkgmanager.pkgMsg('Nessuna macchina da aggiornare: spunta le macchine in «Macchine scansionate»' + ((notSel.length > 0) ? (' — non selezionate: ' + notSel.join(', ')) : '') + ((skippedOff.length > 0) ? (' — selezionate ma OFFLINE: ' + skippedOff.join(', ')) : '') + '.'); return; }
+            var base = location.origin + '/pkgstore.ashx?t=' + encodeURIComponent(window.pkgmanagerToken) + '&p=' + encodeURIComponent(grp.storeDirName + '/');
+            var fl = [];
+            for (var j = 0; j < have.length; j++) { fl.push("@{n='" + have[j].file + "';s='" + have[j].sha384 + "'}"); }
+            var ps = [
+                "$ErrorActionPreference='Continue'",
+                "[Net.ServicePointManager]::ServerCertificateValidationCallback={ $true }",
+                "[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12",
+                "$files=@(" + fl.join(',') + ")",
+                "$base='" + base + "'",
+                "foreach($f in $files){",
+                " $o=Join-Path $env:TEMP $f.n",
+                " try{",
+                "  Invoke-WebRequest -Uri ($base+[uri]::EscapeDataString($f.n)) -OutFile $o -UseBasicParsing",
+                "  $h=(Get-FileHash $o -Algorithm SHA384).Hash.ToLower()",
+                "  if($h -ne $f.s){Write-Output ($f.n+': ERR sha384 non corrisponde');continue}",
+                "  $p=Start-Process wusa.exe -ArgumentList ('\"'+$o+'\" /quiet /norestart') -Wait -PassThru",
+                "  $c=$p.ExitCode",
+                "  if($c -eq 0){Write-Output ($f.n+': OK')}",
+                "  elseif($c -eq 3010){Write-Output ($f.n+': OK - RIAVVIO NECESSARIO')}",
+                "  elseif($c -eq 2359302){Write-Output ($f.n+': gia installato')}",
+                "  else{Write-Output ($f.n+': ERR wusa '+$c)}",
+                " }catch{Write-Output ($f.n+': ERR '+$_.Exception.Message)}",
+                "}"
+            ].join('; ');
+            var hasD2Dialog = (typeof d2runBegin == 'function');
+            var responseid = hasD2Dialog ? d2runBegin(picked) : pluginHandler.pkgmanager.pkgD2Pending(picked);
+            meshserver.send({ action: 'runcommands', nodeids: picked, type: 2, cmds: ps, runAsUser: 0, reply: true, responseid: responseid, timeout: 1800 });
+            pluginHandler.pkgmanager.pkgMsg('Installazione Windows avviata su ' + picked.length + ' macchina/e (' + have.length + ' .msu, /norestart — il riavvio resta manuale)' + ((skippedOff.length > 0) ? (' — offline saltate: ' + skippedOff.join(', ')) : '') + (hasD2Dialog ? ' — output nel dialogo dei risultati.' : ' — riepilogo qui a fine esecuzione.'));
+            if (!hasD2Dialog) { pluginHandler.pkgmanager.pkgD2PollSummary(responseid, Date.now(), 'Installazione Windows completata', 2040000); }
+        } catch (e) { pluginHandler.pkgmanager.pkgMsg('Install Windows fallita: ' + e); }
+            return; }
             if (grp.os != 'linux') { pluginHandler.pkgmanager.pkgMsg('Install per ' + grp.os + ' non deducibile dalla scansione: usa meshos-fetch (--macos).'); return; }
             if (window.pkgmanagerToken == null) { pluginHandler.pkgmanager.pkgMsg('Token store non disponibile — attendi il caricamento del catalogo e riprova.'); return; }
             var have = grp.updates.filter(function (u) { return (u.inStore === true) && (u.sha384 != null); });
