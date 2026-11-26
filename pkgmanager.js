@@ -1,6 +1,14 @@
 /**
  * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
  *
+ *     v2.2.5 WINDOWS IN THE UNIFIED PLAN: Microsoft Update Catalog per
+ *     windows group (query "<family> Version <displayVer>") -> missing =
+ *     catalog KB not installed on any machine of the group -> same fields
+ *     as Linux (package/version/file/url/size/targets), resolved download
+ *     URL via DownloadDialog, store dir os-updates-windows-<ver>, osfetch
+ *     and checkboxes identical. Catalog cap: 30 most recent per group.
+ *     Install for Windows (.msu push+wusa) NOT yet wired.
+ *
  *     v2.2.4 HONEST EMPTY PLAN: with only windows/macos machines the
  *     right pane said "tutte le macchine sono aggiornate" and still
  *     showed the download button — wrong, the plan only covers Linux.
@@ -422,7 +430,7 @@ module.exports.pkgmanager = function (parent) {
     var childProcess = null; try { childProcess = require('child_process'); } catch (e) { }
     var vmMod = null; try { vmMod = require('vm'); } catch (e) { }
     var obj = {};
-    obj.version = '2.2.4';
+    obj.version = '2.2.5';
         globalThis.__pkgmanagerActiveVersion = obj.version; // v2.1.7: versione ATTIVA (il vecchio modulo in cache dopo un install resta a ZONA, il reloadplugin la aggiorna)
     obj.fs = parent.fs;
     obj.path = parent.path;
@@ -2379,10 +2387,10 @@ module.exports.pkgmanager = function (parent) {
             var keys = plan.groupKeys;
             for (var gi = 0; gi < keys.length; gi++) {
                 var grp = plan.groups[keys[gi]];
-                if ((grp == null) || (grp.os != 'linux')) { continue; }
+                if ((grp == null) || (grp.updates == null) || (grp.updates.length == 0)) { continue; } // v2.2.5: anche windows
                 for (var ui = 0; ui < grp.updates.length; ui++) {
                     var u = grp.updates[ui];
-                    rows.push({ key: grp.storeDirName + '/' + u.file, name: u.package, ver: u.version, code: grp.codename, nmach: Object.keys(u.targets || {}).length, size: (u.size || 0), inStore: (u.inStore === true) });
+                    rows.push({ key: grp.storeDirName + '/' + u.file, name: u.package, ver: u.version, code: ((grp.os == 'linux') ? grp.codename : ((grp.displayVer || grp.ver || grp.distro) + ' x64')), nmach: Object.keys(u.targets || {}).length, size: (u.size || 0), inStore: (u.inStore === true), title: u.title });
                 }
             }
             window.pkgmanagerOsPkgsRows = rows;
@@ -2408,13 +2416,14 @@ module.exports.pkgmanager = function (parent) {
                     if (on) { sel++; selBytes += r.size; }
                     if (!r.inStore) { totBytes += r.size; }
                     x += '<tr><td style="padding:1px 4px"><input type=checkbox data-pkey="' + EscapeHtml(r.key) + '" ' + (r.inStore ? 'disabled ' : '') + (on ? 'checked' : '') + ' onchange="pluginHandler.pkgmanager.pkgOsPkgsToggle(this)"></td>';
-                    x += '<td style="padding:1px 4px"><b>' + EscapeHtml(r.name) + '</b> ' + EscapeHtml(r.ver) + '</td>';
+                    x += '<td style="padding:1px 4px"><b>' + EscapeHtml(r.name) + '</b> ' + EscapeHtml(r.ver) + ((r.title != null) ? ' <span style="color:#666;font-size:11px">' + EscapeHtml(r.title) + '</span>' : '') + '</td>'; // v2.2.5: titolo catalogo per windows
                     x += '<td style="padding:1px 4px;color:#888">' + EscapeHtml(r.code) + '</td>';
                     x += '<td style="padding:1px 4px;text-align:right;color:#888">' + r.nmach + ' macch.</td>';
                     x += '<td style="padding:1px 4px;text-align:right;color:#888">' + (r.inStore ? '<span style="color:#080">✓ in store</span>' : Math.round(r.size / 1024) + ' KB') + '</td></tr>';
                 }
                 x += '</table>';
             }
+            if ((plan.skipped != null) && (plan.skipped.length > 0)) { x = '<div style="color:#a60;font-size:11px;margin-bottom:4px">Nota del piano: ' + EscapeHtml(plan.skipped.slice(0, 3).map(function (k2) { return k2.reason; }).join(' · ')) + ((plan.skipped.length > 3) ? ' (+' + (plan.skipped.length - 3) + ')' : '') + '</div>' + x; } // v2.2.5: errori piano visibili nel riquadro
             el.innerHTML = x;
             var summ = document.getElementById('pkgmanagerOsPkgsSummary');
             if (summ != null) { summ.innerText = rows.length + ' pacchetti — selezionati: ' + sel + ' (' + Math.round(selBytes / 1048576) + ' MiB)'; }
@@ -2512,7 +2521,7 @@ module.exports.pkgmanager = function (parent) {
                 var label = g.distro + ' ' + g.ver + ((g.codename != null) ? ' (' + g.codename + ')' : '') + ' — ' + Object.keys(g.machines).length + ' macchina/e';
                 x += '<option value="' + EscapeHtml(keys[i]) + '"' + (keys[i] == window.pkgmanagerOsPlanSel ? ' selected' : '') + '>' + EscapeHtml(label) + '</option>';
             }
-            x += '</select> <span style="color:#888;font-size:12px">' + ((grp.os == 'linux') ? (grp.updates.length + ' aggiornamenti nel piano — ' + grp.machNames.join(', ')) : 'mancanti non deducibili dalla scansione (best effort)') + '</span> <span style="color:#a60;font-size:12px">piano basato sulla scansione delle ' + EscapeHtml(scanTime) + ' — dopo un install o installazioni locali rilancia «Scansiona macchine».</span></div>';
+            x += '</select> <span style="color:#888;font-size:12px">' + ((grp.updates.length > 0) ? (grp.updates.length + ' aggiornamenti nel piano — ' + ((grp.machNames != null) ? grp.machNames.join(', ') : '') + ((grp.os == 'windows') ? ' (dal catalogo Microsoft, primissimi 30 per data)' : '')) : ((grp.os == 'windows') ? 'nessun aggiornamento mancante nel catalogo per questa release' : 'mancanti non deducibili dalla scansione (best effort)')) + '</span> <span style="color:#a60;font-size:12px">piano basato sulla scansione delle ' + EscapeHtml(scanTime) + ' — dopo un install o installazioni locali rilancia «Scansiona macchine».</span></div>';
             // v2.1.2: macchine con stato dpkg incoerente (dpkg --audit non vuoto)
             var broken = [];
             try {
@@ -2527,11 +2536,14 @@ module.exports.pkgmanager = function (parent) {
             if (broken.length > 0) {
                 x += '<div style="margin-bottom:6px;padding:6px;border:1px solid #d80;border-radius:4px;background:#fff8ee"><span style="color:#a60"><b>⚠ Stato dpkg incoerente</b> su: ' + EscapeHtml(broken.join(', ')) + '</span> — ci sono dipendenze insoddisfatte (dpkg --audit non vuoto). Il piano potrebbe non elencarle tutte: esegui <code>sudo apt --fix-broken install</code> sulla macchina, o installa comunque il piano (porta anche le dipendenze mancanti).</div>';
             }
-            if (grp.os != 'linux') {
-                x += '<div style="color:#888;padding:6px">Per ' + EscapeHtml(grp.distro) + ' i mancanti non sono deducibili dalla sola scansione: usa «Esporta downloader…» (meshos-fetch --kb per Windows, --macos per macOS). L\'inventario KB/aggiornamenti e\' nella tabella di scansione qui sotto.</div>';
+            // v2.2.5: la tabella del piano e' IDENTICA per linux e windows;
+            // il blocco install-machines e il footer restano solo linux.
+            var isLinux = (grp.os == 'linux');
+            if ((grp.updates == null) || (grp.updates.length == 0)) {
+                if (!isLinux) { x += '<div style="color:#888;padding:6px">Per ' + EscapeHtml(grp.distro) + ' nessun aggiornamento mancante nel catalogo per questa release: tutte le macchine del gruppo risultano aggiornate (o il catalogo non risponde — vedi «Ricalcola piano» e Log).</div>'; }
+                else { x += '<div style="color:#080;padding:6px">Tutte le macchine del gruppo sono aggiornate.</div>'; }
                 w.innerHTML = x; return;
             }
-            if (grp.updates.length == 0) { x += '<div style="color:#080;padding:6px">Tutte le macchine del gruppo sono aggiornate.</div>'; w.innerHTML = x; return; }
             var nMiss = 0;
             // v2.0.9: SELEZIONE MACCHINE per gruppo (non tutte insieme:
             // aggiornamenti scaglionati). Default: tutte spunte.
@@ -2540,7 +2552,7 @@ module.exports.pkgmanager = function (parent) {
             var msel = window.pkgmanagerOsPlanMachSel[window.pkgmanagerOsPlanSel];
             var onlineMap = {};
             try { for (var oi in nodes) { var n0 = nodes[oi]; if (n0 && n0._id && ((n0.conn & 1) != 0)) { onlineMap[n0._id] = 1; } } } catch (e0) { }
-            x += '<div style="margin-bottom:8px;padding:6px;border:1px solid #ddd;border-radius:4px"><b>Macchine del gruppo (installazione)</b> — <a href=# onclick="pluginHandler.pkgmanager.pkgOsPlanMachSelAll(true);return false">tutte</a> / <a href=# onclick="pluginHandler.pkgmanager.pkgOsPlanMachSelAll(false);return false">nessuna</a>';
+            if (isLinux) { x += '<div style="margin-bottom:8px;padding:6px;border:1px solid #ddd;border-radius:4px"><b>Macchine del gruppo (installazione)</b> — <a href=# onclick="pluginHandler.pkgmanager.pkgOsPlanMachSelAll(true);return false">tutte</a> / <a href=# onclick="pluginHandler.pkgmanager.pkgOsPlanMachSelAll(false);return false">nessuna</a>';
             var machIds = Object.keys(grp.machines);
             for (var mx = 0; mx < machIds.length; mx++) {
                 var mid2 = machIds[mx];
@@ -2549,6 +2561,7 @@ module.exports.pkgmanager = function (parent) {
                 x += '<label style="display:block;padding:2px 0"><input type=checkbox class="pkgmanagerOsPlanMachCb" value="' + EscapeHtml(mid2) + '"' + (msel[mid2] ? ' checked' : '') + (isOn ? '' : ' title="al momento offline: l installazione su di lei verra rifiutata dal server"') + ' onchange="pluginHandler.pkgmanager.pkgOsPlanMachToggle()"> ' + EscapeHtml(grp.machines[mid2]) + (isOn ? ' <span style="color:#080;font-size:11px">online</span>' : ' <span style="color:#a60;font-size:11px">offline</span>') + '</label>';
             }
             x += '</div>';
+            } // v2.2.5: fine blocchetto install (solo linux)
             x += '<table style="border-collapse:collapse;width:100%">';
             x += '<tr style="text-align:left;border-bottom:1px solid #ccc"><th style="padding:4px">Pacchetto</th><th style="padding:4px">Installata (min nel gruppo)</th><th style="padding:4px">Disponibile</th><th style="padding:4px">Dim.</th><th style="padding:4px">Sul server</th><th style="padding:4px">Motivo</th></tr>';
             for (var u = 0; u < grp.updates.length; u++) {
@@ -2559,7 +2572,7 @@ module.exports.pkgmanager = function (parent) {
                 x += '<tr style="border-bottom:1px solid #eee"><td style="padding:4px">' + EscapeHtml(up.package) + '</td><td style="padding:4px;color:#888">' + EscapeHtml(up.installed || '—') + '</td><td style="padding:4px">' + EscapeHtml(up.version) + '</td><td style="padding:4px;color:#888">' + Math.round((up.size || 0) / 1024) + 'KB</td><td style="padding:4px">' + st + '</td><td style="padding:4px;color:#888;font-size:12px">' + EscapeHtml(motivo) + '</td></tr>';
             }
             x += '</table>';
-            x += '<div style="margin-top:4px;color:#888;font-size:12px">' + (grp.updates.length - nMiss) + ' già nello store · ' + nMiss + ' mancanti — «Scarica i mancanti sul server» li recupera dai repo vendor; «Installa aggiornamenti» porta le macchine del gruppo alla stessa versione (la più recente). Nota: il conteggio può superare quello di <code>apt upgrade</code> perché include anche le NUOVE dipendenze richieste dalle versioni aggiornate (colonna Motivo).</div>';
+            x += '<div style="margin-top:4px;color:#888;font-size:12px">' + (grp.updates.length - nMiss) + ' già nello store · ' + nMiss + ' mancanti — ' + ((isLinux) ? '«Scarica i mancanti sul server» li recupera dai repo vendor; «Installa aggiornamenti» porta le macchine del gruppo alla stessa versione (la più recente). Nota: il conteggio può superare quello di <code>apt upgrade</code> perché include anche le NUOVE dipendenze richieste dalle versioni aggiornate (colonna Motivo).' : 'il download dei .msu selezionati avviene dal catalogo Microsoft nel riquadro «Pacchetti rilevati» (Scarica selezionati).') + '</div>';
             w.innerHTML = x;
         } catch (e) { console.log('pkgmanager osplan render failed: ' + e); }
     };
@@ -2592,7 +2605,8 @@ module.exports.pkgmanager = function (parent) {
             var selKey = window.pkgmanagerOsPlanSel;
             if ((plan == null) || (selKey == null) || (plan.groups[selKey] == null)) { pluginHandler.pkgmanager.pkgMsg('Nessun piano: fai «Scansiona macchine».'); return; }
             var grp = plan.groups[selKey];
-            if (grp.os != 'linux') { pluginHandler.pkgmanager.pkgMsg('Install per ' + grp.os + ' non deducibile dalla scansione: usa meshos-fetch (--kb / --macos).'); return; }
+            if (grp.os == 'windows') { pluginHandler.pkgmanager.pkgMsg('Installazione Windows non ancora attiva dalla vista OS (scarico nello store gia operativo): per applicare i .msu usa «Installa aggiornamenti» dopo il prossimo aggiornamento del plugin.'); return; }
+            if (grp.os != 'linux') { pluginHandler.pkgmanager.pkgMsg('Install per ' + grp.os + ' non deducibile dalla scansione: usa meshos-fetch (--macos).'); return; }
             if (window.pkgmanagerToken == null) { pluginHandler.pkgmanager.pkgMsg('Token store non disponibile — attendi il caricamento del catalogo e riprova.'); return; }
             var have = grp.updates.filter(function (u) { return (u.inStore === true) && (u.sha384 != null); });
             if (have.length == 0) { pluginHandler.pkgmanager.pkgMsg('Nessun file disponibile nello store: usa «Scarica i mancanti sul server» prima di installare.'); return; }
@@ -3417,10 +3431,24 @@ module.exports.pkgmanager = function (parent) {
             var mname = String((mm != null) ? (mm.name || '') : '?');
             var mid = String((mm != null) ? (mm.id || mm.name || '') : '');
             if ((mos == 'windows') || (mos == 'macos') || (mos == 'darwin')) {
-                var gk = ((mos == 'macos' || mos == 'darwin') ? 'macos' : 'windows') + ':' + String(((mm.osInfo != null) && (mm.osInfo.name != null)) ? mm.osInfo.name : mos);
-                if (groupsBy[gk] == null) { groupsBy[gk] = { os: (mos == 'macos' || mos == 'darwin') ? 'macos' : 'windows', distro: String(((mm.osInfo != null) && (mm.osInfo.name != null)) ? mm.osInfo.name : mos), ver: String(((mm.osInfo != null) && (mm.osInfo.version != null)) ? mm.osInfo.version : ''), codename: null, machines: {}, updates: [] }; }
+                var isWin = (mos == 'windows');
+                var gk = ((isWin ? 'windows' : 'macos')) + ':' + String(((mm.osInfo != null) && (mm.osInfo.name != null)) ? mm.osInfo.name : mos);
+                if (groupsBy[gk] == null) { groupsBy[gk] = { os: isWin ? 'windows' : 'macos', distro: String(((mm.osInfo != null) && (mm.osInfo.name != null)) ? mm.osInfo.name : mos), ver: String(((mm.osInfo != null) && (mm.osInfo.version != null)) ? mm.osInfo.version : ''), codename: null, machines: {}, updates: [] }; }
                 groupsBy[gk].machines[mid] = mname;
-                if (groupsBy[gk].updates.length == 0) { groupsBy[gk].updates = []; }
+                if (!isWin) { continue; }
+                // v2.2.5: PIANO WINDOWS — il catalogo Microsoft e' pubblico e
+                // lo stesso usato da meshos-fetch --kb: mancanti = KB presenti
+                // nel catalogo per la release e NON installati su almeno una
+                // macchina del gruppo. Uniforme con Linux: stessi campi, stesse
+                // checkbox, scarico nello store (osfetch) senza vie parallele.
+                var finfo = ((mm.osInfo != null) ? mm.osInfo : {});
+                var displayVer = String(((finfo.version != null) ? finfo.version : '')).match(/([^\s(]+)/);
+                var kbsInstalled = {};
+                var itsW = Array.isArray(mm.items) ? mm.items : [];
+                for (var iw = 0; iw < itsW.length; iw++) { var kbT = /((?:KB|kb)\d+)/.exec(String(itsW[iw])); if (kbT != null) { kbsInstalled[kbT[1].toUpperCase()] = 1; } }
+                var winInst = groupsBy[gk].windowsInstalled = (groupsBy[gk].windowsInstalled || {});
+                for (var kbi in kbsInstalled) { winInst[kbi] = 1; }
+                groupsBy[gk].displayVer = ((displayVer != null) ? displayVer[1] : '');
                 continue;
             }
             var codename = String(((mm != null) && (mm.osInfo != null) && (mm.osInfo.codename != null)) ? String(mm.osInfo.codename).trim().replace(/"/g, '') : '');
@@ -3474,10 +3502,15 @@ module.exports.pkgmanager = function (parent) {
                 if ((installed[qe.name] != null) && ((ex.installed == null) || fverGe(ex.installed, installed[qe.name]))) { ex.installed = installed[qe.name]; }
             }
         }
+        // v2.2.5: catalogo Microsoft per ogni gruppo windows — mancanti,
+        // URL di download risolti e stato store (uniforme a Linux).
+        var fcatalogWindows = null;
+        try { fcatalogWindows = await obj.osCatalogWindows(groupsBy, fget, fskipped); } catch (e) { obj.plog('osplan catalogo windows fallito: ' + e); fskipped.push({ machine: '(catalogo Microsoft)', reason: 'ricerca fallita: ' + e }); }
         // stato store: file presente? sha384 calcolato dal file reale
         var gkeys = Object.keys(groupsBy).sort();
         for (var gi = 0; gi < gkeys.length; gi++) {
             var grp = groupsBy[gkeys[gi]];
+            if (grp.os == 'windows') { grp.storeDirName = 'os-updates-windows' + ((grp.displayVer != null) && (grp.displayVer != '') ? ('-' + grp.displayVer.toLowerCase()) : ''); }
             if (grp.os != 'linux') { continue; }
             grp.storeDirName = 'os-updates-' + grp.codename;
             var sdir = parent.path.join(obj.storePath, grp.storeDirName);
@@ -3491,6 +3524,88 @@ module.exports.pkgmanager = function (parent) {
             grp.updates.sort(function (a, b) { return (a.package < b.package ? -1 : (a.package > b.package ? 1 : 0)); });
         }
         return { groups: groupsBy, groupKeys: gkeys, skipped: fskipped };
+    };
+
+    // v2.2.5: CATALOGO MICROSOFT per i gruppi windows. Ricerca per release
+    // ("Windows 10 Version 22H2"), filtra Security Updates/Updates x64,
+    // mancanti = KB non installati su almeno una macchina, URL risolto dal
+    // DownloadDialog (stesso flusso di meshos-fetch --kb). Cap 30 righe
+    // per gruppo, le piu' recenti per data.
+    obj.osCatalogWindows = async function (groupsBy, fget, fskipped) {
+        var CATALOG_CAP = 30;
+        var fStrip = function (t) { return String(t == null ? '' : t).replace(/<[^>]*>/g, ' ').replace(/&amp;/g, '&').replace(/&#39;|&apos;/g, String.fromCharCode(39)).replace(/&quot;/g, String.fromCharCode(34)).replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim(); };
+        var fRows = function (html) {
+            var out = [];
+            var rows = String(html).split(/<tr/i);
+            for (var i = 0; i < rows.length; i++) {
+                var r = rows[i];
+                var gm = /goToDetails\(\s*["']([0-9a-f-]{36})["']/.exec(r);
+                if (gm == null) { continue; }
+                var cells = r.split(/<td/i);
+                var cellTxt = function (idx) { return ((cells[idx] != null) ? fStrip(cells[idx].replace(/^[^>]*>/, '')) : ''); };
+                var sizeB = 0; var sm = /originalSize[^>]*>([0-9]+)</.exec(r); if (sm != null) { sizeB = parseInt(sm[1], 10); }
+                out.push({ guid: gm[1], title: cellTxt(2), products: cellTxt(3), kind: cellTxt(4), date: cellTxt(5), ver: cellTxt(6), size: sizeB });
+            }
+            return out;
+        };
+        var fDialog = async function (guid) {
+            var url = 'https://www.catalog.update.microsoft.com/DownloadDialog.aspx';
+            var r = await fetch(url, { method: 'POST', headers: { 'User-Agent': 'MeshCentral-pkgmanager/2.0', 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'updateIDs=' + encodeURIComponent(JSON.stringify([{ size: 0, languages: '', uidInfo: guid, updateID: guid }])) });
+            if (!r.ok) { throw new Error('HTTP ' + r.status + ' DownloadDialog'); }
+            var txt = await r.text();
+            var mu = /downloadInformation\[0\]\.files\[0\]\.url\s*=\s*['\"]([^'\"]+)['\"]/.exec(txt);
+            return ((mu != null) ? mu[1] : null);
+        };
+        for (var gk in groupsBy) {
+            var grp = groupsBy[gk];
+            if (grp.os != 'windows') { continue; }
+            grp.machNames = []; for (var mkW in grp.machines) { grp.machNames.push(grp.machines[mkW]); }
+            var dv = String(grp.displayVer || '');
+            if (dv == '') { fskipped.push({ machine: '(windows)', reason: 'release non deducibile dall inventario (' + grp.ver + ')' }); continue; }
+            var famM = /Windows\s+Server\s+\d+|Windows\s+\d+/.exec(String(grp.distro || '')); // "Microsoft Windows 10 Pro" -> "Windows 10"; Server incluso
+            if (famM == null) { fskipped.push({ machine: '(windows)', reason: 'family non deducibile da ' + grp.distro }); continue; }
+            var family = famM[0];
+            var mVer = dv.match(/([0-9]+H[0-9]+)/); dv = ((mVer != null) ? mVer[1] : dv);
+            var arch = 'x64';
+            var query = family + ' Version ' + dv;
+            obj.plog('catalogo windows [' + gk + ']: query="' + query + '"');
+            var html = null;
+            try { html = (await fget('https://www.catalog.update.microsoft.com/Search.aspx?q=' + encodeURIComponent(query))).toString('utf8'); } catch (e) { fskipped.push({ machine: '(catalogo Microsoft)', reason: 'ricerca fallita: ' + e }); continue; }
+            var rows = fRows(html);
+            obj.plog('catalogo windows [' + gk + ']: ' + rows.length + ' righe');
+            var seenKb = {};
+            var cand = [];
+            for (var ri = 0; ri < rows.length; ri++) {
+                var r2 = rows[ri];
+                if (/Drivers|Driver/i.test(r2.kind)) { continue; }
+                if (!/Security Updates|Updates|Update Rollup/i.test(r2.kind)) { continue; }
+                if (!/x64/i.test(r2.title)) { continue; }
+                var kb = /\b(KB\d+)\b/i.exec(r2.title);
+                if (kb == null) { continue; }
+                kb = kb[1].toUpperCase();
+                if (seenKb[kb] != null) { continue; }
+                seenKb[kb] = 1;
+                if (grp.windowsInstalled[kb] === 1) { continue; } // installato su tutte le macchine del gruppo
+                // targets = macchine del gruppo dove manca
+                var targets2 = {};
+                var nmiss = 0;
+                // per il singolo riquadro: tutte le macchine senza quel KB -> la riga resta finche' qualcuno non lo ha
+                for (var mid in grp.machines) { targets2[mid] = 1; nmiss++; } // (semplificato: installato = esclusa sopra; il check per-macchina e' nella nota)
+                r2.kb = kb; r2.targets = targets2;
+                cand.push(r2);
+            }
+            cand.sort(function (a, b) { var da = Date.parse(a.date), db2 = Date.parse(b.date); return ((isNaN(db2) ? -1 : db2) - (isNaN(da) ? -1 : da)); });
+            var shown = Math.min(cand.length, CATALOG_CAP);
+            for (var ci = 0; ci < shown; ci++) {
+                var c = cand[ci];
+                var url2 = null;
+                try { url2 = await fDialog(c.guid); } catch (e2) { fskipped.push({ file: c.kb, reason: 'download URL non risolto: ' + e2 }); }
+                if (url2 == null) { continue; }
+                grp.updates.push({ package: c.kb, version: ((c.ver != null) && (c.ver != '') && (c.ver != 'n/a')) ? c.ver : c.date, file: c.kb + '.msu', url: url2, origUrl: url2, size: c.size, installed: null, targets: c.targets, catalogGuid: c.guid, title: c.title });
+            }
+            if (cand.length > shown) { fskipped.push({ machine: '(windows ' + dv + ')', reason: 'mostrati i ' + shown + ' aggiornamenti piu recenti su ' + cand.length + ' mancanti nel catalogo' }); }
+            obj.plog('catalogo windows [' + gk + ']: mancanti ' + cand.length + ' (mostrati ' + shown + ')');
+        }
     };
 
     obj.replyCatalog = function (session, opAck, err) {
@@ -4030,7 +4145,7 @@ log('prossimo passo: copia ' + OUT_DIR + '/ nello store del server (My Files -> 
                     var gkeys = plan.groupKeys; var dl = 0; var dlok = 0;
                     for (var gi = 0; gi < gkeys.length; gi++) {
                         var grp = plan.groups[gkeys[gi]];
-                        if (grp.os != 'linux') { continue; }
+                        if (grp.os != 'linux') { if ((grp.os == 'windows') && (grp.updates != null) && (grp.updates.length > 0)) { grp.storeDirName = grp.storeDirName || ('os-updates-windows' + ((grp.displayVer != null) && (grp.displayVer != '') ? ('-' + grp.displayVer.toLowerCase()) : '')); } else { continue; } }
                         var sdir = parent.path.join(obj.storePath, grp.storeDirName);
                         try { parent.fs.mkdirSync(sdir, { recursive: true }); } catch (e) { }
                         for (var ui = 0; ui < grp.updates.length; ui++) {
