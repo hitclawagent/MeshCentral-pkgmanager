@@ -2,8 +2,10 @@
 
 A [MeshCentral](https://github.com/Ylianst/MeshCentral) plugin for **remote package installation** on Windows, Linux and macOS agents. Catalog-driven, with **airgap installs** (devices never touch the internet: artifacts are downloaded from the MeshCentral server itself over the LAN).
 
-Current version: **2.2.14** — requires MeshCentral **1.3.1**
+Current version: **2.2.15** — requires MeshCentral **1.3.1**
 
+> **2.2.15**: WINDOWS INSTALL — «Installa aggiornamenti» on a Windows group now works: for the checked+online machines it fetches the .msu files from the server store (pkgstore.ashx, token-authenticated), verifies SHA384 on the machine, and runs wusa /quiet /norestart (no automatic reboot — exit 3010 reports "RIAVVIO NECESSARIO", 2359302 "già installato"). Per-KB outcome lines land in the d2 results dialog. pkgMsg now scrolls into view.
+>
 > **2.2.14**: machine selection for installation — checkboxes in «Macchine scansionate» (default UNCHECKED, "tutte/nessuna" links, live counter) drive «Installa aggiornamenti»: only checked and online machines receive the commands. No accidental fleet-wide updates; safe staged rollouts on a small group of machines first.
 >
 > **2.2.13**: the flex row wrapping Macchine/Pacchetti was never closed — Riassunto and the message div became flex children (the summary showed up on the left). Row closed properly; div-balance check added to the test.
