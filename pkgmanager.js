@@ -1,6 +1,13 @@
 /**
  * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
  *
+ *     v2.2.0 DOWNLOAD TAB + PLUGIN LOG: dedicated "Download plugin" tab
+ *     (version/update, plugin downloader binaries with retry + last error,
+ *     core agentbuilds clearly separated, log tail). plog() replaces the
+ *     plugin's server console.log lines: same console output plus an
+ *     in-memory ring (500 lines) and pkgmanager.log in datapath (1 MB
+ *     rotation). Server actions: binstatus, binretry, plogtail (admin).
+ *
  *     v2.1.12 UPDATE-CHECK CACHE-BUSTER: raw POPs served divergent copies
  *     (check could read a stale js and answer "already updated" for
  *     minutes). pluginupdate-check now fetches a unique query-string URL.
@@ -395,7 +402,7 @@ module.exports.pkgmanager = function (parent) {
     var childProcess = null; try { childProcess = require('child_process'); } catch (e) { }
     var vmMod = null; try { vmMod = require('vm'); } catch (e) { }
     var obj = {};
-    obj.version = '2.1.12';
+    obj.version = '2.2.0';
         globalThis.__pkgmanagerActiveVersion = obj.version; // v2.1.7: versione ATTIVA (il vecchio modulo in cache dopo un install resta a ZONA, il reloadplugin la aggiorna)
     obj.fs = parent.fs;
     obj.path = parent.path;
@@ -412,6 +419,32 @@ module.exports.pkgmanager = function (parent) {
     // compilati per-OS sono un asset dell'istanza. Se mancano, 15s dopo
     // l'avvio il plugin scarica lo zip completo dalla release e estrae
     // pkgmanager/bin/* con unzip (niente toolchain Go sul target).
+    // v2.2.0: LOGGER DEL PLUGIN — righe in memoria (coda 500) + file
+    // pkgmanager.log in datapath/plugins/pkgmanager (rotazione a 1 MB).
+    // plog sostituisce i console.log server del plugin: stesso output su
+    // console/journal E traccia locale visibile dalla UI (sezione Log).
+    obj.plogBuf = [];
+    obj.plogCount = 0;
+    obj.plog = function (msg) {
+        var line = new Date().toISOString() + ' ' + String(msg);
+        try { console.log('pkgmanager[server]: ' + String(msg)); } catch (e0) { }
+        obj.plogBuf.push(line);
+        if (obj.plogBuf.length > 500) { obj.plogBuf.splice(0, obj.plogBuf.length - 500); }
+        try {
+            if (obj.logPath == null) { obj.logPath = parent.path.join(parent.parent.datapath, 'plugins', 'pkgmanager', 'pkgmanager.log'); }
+            parent.fs.appendFileSync(obj.logPath, line + '\n');
+            obj.plogCount++;
+            if ((obj.plogCount % 100) == 0) {
+                var stl = parent.fs.statSync(obj.logPath);
+                if (stl.size > 1048576) {
+                    try { parent.fs.unlinkSync(obj.logPath + '.old'); } catch (e4) { }
+                    parent.fs.renameSync(obj.logPath, obj.logPath + '.old');
+                }
+            }
+        } catch (e3) { }
+        return line;
+    };
+
     obj.downloaderPlatforms = ['linux-x64', 'linux-arm64', 'linux-arm', 'win-x64', 'win-x86', 'macos-x64', 'macos-arm64'];
     obj.binariesUrl = 'https://github.com/hitclawagent/MeshCentral-pkgmanager/releases/download/v2.0.2/pkgmanager-full-2.0.2.zip';
     try { var _pbin = parent.parent.config.settings.plugins; if ((_pbin != null) && (_pbin.pkgmanagerBinariesUrl != null)) { obj.binariesUrl = String(_pbin.pkgmanagerBinariesUrl); } } catch (e) { }
@@ -472,11 +505,11 @@ module.exports.pkgmanager = function (parent) {
         try {
             if (obj.ensureBinariesBusy) return;
             var miss = obj.binariesMissing();
-            if (miss.length == 0) { if (obj.ensureBinariesAttempts == 0) { console.log('pkgmanager[server]: binari del downloader presenti (' + obj.downloaderPlatforms.length + '/' + obj.downloaderPlatforms.length + ' piattaforme).'); } return; }
-            if (obj.ensureBinariesAttempts >= 5) { console.log('pkgmanager[server]: ensureBinaries rinuncia dopo 5 tentativi (url: ' + obj.binariesUrl + ') — airgap: copia bin/ a mano o usa py.'); return; }
+            if (miss.length == 0) { if (obj.ensureBinariesAttempts == 0) { obj.plog('binari del downloader presenti (' + obj.downloaderPlatforms.length + '/' + obj.downloaderPlatforms.length + ' piattaforme).'); } return; }
+            if (obj.ensureBinariesAttempts >= 5) { obj.plog('ensureBinaries rinuncia dopo 5 tentativi (url: ' + obj.binariesUrl + ') — airgap: copia bin/ a mano o usa py.'); return; }
             obj.ensureBinariesBusy = true;
             obj.ensureBinariesAttempts++;
-            console.log('pkgmanager[server]: ensureBinaries -> mancano ' + miss.length + '/7 binari (' + miss.join(', ') + '), scarico da ' + obj.binariesUrl + ' (tentativo ' + obj.ensureBinariesAttempts + ')...');
+            obj.plog('ensureBinaries -> mancano ' + miss.length + '/7 binari (' + miss.join(', ') + '), scarico da ' + obj.binariesUrl + ' (tentativo ' + obj.ensureBinariesAttempts + ')...');
             var tmpZip = parent.path.join(parent.path.dirname(obj.catalogPath), '.binaries-pending.zip');
             Promise.resolve().then(function () { return fetch(obj.binariesUrl); }).then(function (r) {
                 if (!r.ok) { throw new Error('HTTP ' + r.status); }
@@ -484,7 +517,7 @@ module.exports.pkgmanager = function (parent) {
             }).then(function (ab) {
                 var buf = Buffer.from(ab);
                 parent.fs.writeFileSync(tmpZip, buf);
-                console.log('pkgmanager[server]: ensureBinaries -> scaricato ' + Math.round(buf.length / 1048576) + 'MB, estrazione...');
+                obj.plog('ensureBinaries -> scaricato ' + Math.round(buf.length / 1048576) + 'MB, estrazione...');
                 var tmpDir = parent.path.join(parent.path.dirname(obj.catalogPath), '.binaries-extract');
                 // v2.1.11: estrazione con yauzl (dipendenza di MeshCentral) —
                 // niente comando esterno 'unzip', assente nei container minimi
@@ -547,7 +580,7 @@ module.exports.pkgmanager = function (parent) {
     };
     obj.ensureBinariesBusy = false; obj.binariesLastError = null;
                         var left = obj.binariesMissing();
-                        console.log('pkgmanager[server]: ensureBinaries -> estratti ' + names.length + ' binari; mancanti ora: ' + left.length + ((left.length > 0) ? (' (' + left.join(', ') + ')') : ''));
+                        obj.plog('ensureBinaries -> estratti ' + names.length + ' binari; mancanti ora: ' + left.length + ((left.length > 0) ? (' (' + left.join(', ') + ')') : ''));
                         if (left.length > 0) { setTimeout(function () { try { obj.ensureBinaries(); } catch (e10) { } }, 60000); }
                     } catch (e11) {
                         obj.binariesLastError = null;
@@ -592,7 +625,7 @@ module.exports.pkgmanager = function (parent) {
         } catch (e) { fin(e); }
     };
     obj.ensureBinariesBusy = false; obj.binariesLastError = String(e11);
-                        console.log('pkgmanager[server]: ensureBinaries errore installazione: ' + e11);
+                        obj.plog('ensureBinaries errore installazione: ' + e11);
                         // v2.1.11: riprova anche per errori di estrazione (prima: nessun retry)
                         setTimeout(function () { try { obj.ensureBinaries(); } catch (e12) { } }, 60000);
                     }
@@ -640,15 +673,15 @@ module.exports.pkgmanager = function (parent) {
         } catch (e) { fin(e); }
     };
     obj.ensureBinariesBusy = false; obj.binariesLastError = String(err);
-                console.log('pkgmanager[server]: ensureBinaries fallito (' + err + ') — riprovo tra 15 minuti.');
+                obj.plog('ensureBinaries fallito (' + err + ') — riprovo tra 15 minuti.');
                 setTimeout(function () { try { obj.ensureBinaries(); } catch (e12) { } }, 15 * 60 * 1000);
             });
-        } catch (e) { obj.ensureBinariesBusy = false; console.log('pkgmanager[server]: ensureBinaries errore: ' + e); }
+        } catch (e) { obj.ensureBinariesBusy = false; obj.plog('ensureBinaries errore: ' + e); }
     };
-    setTimeout(function () { try { obj.ensureBinaries(); } catch (e) { console.log('pkgmanager[server]: ensureBinaries errore: ' + e); } }, 15000);
+    setTimeout(function () { try { obj.ensureBinaries(); } catch (e) { obj.plog('ensureBinaries errore: ' + e); } }, 15000);
 
     // ---- Client-side (stringified into the browser) ----
-    obj.exports = ['onWebUIStartupEnd', 'pkgSidebarInject', 'pkgRequestList', 'pkgList', 'pkgCompose', 'pkgTableHtml', 'pkgTargetOs', 'pkgDevToggle', 'pkgDevSelectAll', 'pkgDevOsFilter', 'pkgDevListRender', 'pkgSelectedNodes', 'pkgSidebarOpen', 'pkgSidebarRenderDevices', 'pkgSidebarRender', 'pkgPkgToggle', 'pkgPkgSelectAll', 'pkgPkgSummary', 'pkgBatchRun', 'pkgOsScan', 'pkgOsImportManifest', 'pkgOsExportDownloader', 'pkgOsExportGo', 'pkgDownloaderReady', 'pkgOsScanPoll', 'pkgOsScanParse', 'pkgOsScanRender', 'pkgOsScanExport', 'pkgOsSidebarOpen', 'pkgOsRender', 'pkgOsTable', 'pkgOsKind', 'pkgOsAdminOpen', 'pkgIsOsView', 'pkgInstall', 'pkgRunOn', 'goPageStart', 'pkgMsg', 'pkgTabSetActive', 'pkgAdminOpen', 'pkgAdminRender', 'pkgCreateOpen', 'pkgCreateRender', 'pkgCreateCurOs', 'pkgCreateDefaultType', 'pkgCreateFieldSync', 'pkgCreateDraftSync', 'pkgCreateOsChange', 'pkgCreateOsHint', 'pkgCreateUpload', 'pkgCreateArtifactDel', 'pkgCreatePreset', 'pkgCreateInsert', 'pkgCreateSave', 'pkgCreateCheckId', 'pkgCreateCatalogArrived', 'pkgAdminAdd', 'pkgAdminEdit', 'pkgAdminForm', 'pkgAdminCurOs', 'pkgAdminFieldSync', 'pkgAdminDraftSync', 'pkgAdminOsChange', 'pkgAdminOsHint', 'pkgAdminSave', 'pkgAdminDelete', 'pkgAdminUpload', 'pkgAdminUploadDo', 'pkgAdminArtifactDel', 'pkgAdminStatus', 'pkgAdminRefresh', 'pkgAdminOsFilter', 'pkgBinBanner', 'pkgOsPluginOpen', 'pkgOsPluginRender', 'pkgUpdateOnline', 'pkgUpdateFile', 'pkgRestartNow', 'pkgAgentBuild', 'pkgAgentBuildRequest', 'pkgUpdateUpload', 'pkgUpdateInfo', 'pkgUpdateApplied', 'pkgDenied', 'pkgD2WrapOnMessage', 'pkgD2Pending', 'pkgD2Receive', 'pkgD2PollSummary', 'pkgOsPlan', 'pkgOsPlanRender', 'pkgOsPlanSelChange', 'pkgOsPlanRequest', 'pkgOsPlanDownload', 'pkgOsPlanInstall', 'pkgOsPlanMachToggle', 'pkgOsPlanMachSelAll', 'pkgOsStoreRequest', 'pkgOsStoreList', 'pkgOsStoreSelChange', 'pkgOsStoreDel'];
+    obj.exports = ['onWebUIStartupEnd', 'pkgSidebarInject', 'pkgRequestList', 'pkgList', 'pkgCompose', 'pkgTableHtml', 'pkgTargetOs', 'pkgDevToggle', 'pkgDevSelectAll', 'pkgDevOsFilter', 'pkgDevListRender', 'pkgSelectedNodes', 'pkgSidebarOpen', 'pkgSidebarRenderDevices', 'pkgSidebarRender', 'pkgPkgToggle', 'pkgPkgSelectAll', 'pkgPkgSummary', 'pkgBatchRun', 'pkgOsScan', 'pkgOsImportManifest', 'pkgOsExportDownloader', 'pkgOsExportGo', 'pkgDownloaderReady', 'pkgOsScanPoll', 'pkgOsScanParse', 'pkgOsScanRender', 'pkgOsScanExport', 'pkgOsSidebarOpen', 'pkgOsRender', 'pkgOsTable', 'pkgOsKind', 'pkgOsAdminOpen', 'pkgIsOsView', 'pkgInstall', 'pkgRunOn', 'goPageStart', 'pkgMsg', 'pkgTabSetActive', 'pkgAdminOpen', 'pkgAdminRender', 'pkgCreateOpen', 'pkgCreateRender', 'pkgCreateCurOs', 'pkgCreateDefaultType', 'pkgCreateFieldSync', 'pkgCreateDraftSync', 'pkgCreateOsChange', 'pkgCreateOsHint', 'pkgCreateUpload', 'pkgCreateArtifactDel', 'pkgCreatePreset', 'pkgCreateInsert', 'pkgCreateSave', 'pkgCreateCheckId', 'pkgCreateCatalogArrived', 'pkgAdminAdd', 'pkgAdminEdit', 'pkgAdminForm', 'pkgAdminCurOs', 'pkgAdminFieldSync', 'pkgAdminDraftSync', 'pkgAdminOsChange', 'pkgAdminOsHint', 'pkgAdminSave', 'pkgAdminDelete', 'pkgAdminUpload', 'pkgAdminUploadDo', 'pkgAdminArtifactDel', 'pkgAdminStatus', 'pkgAdminRefresh', 'pkgAdminOsFilter', 'pkgBinBanner', 'pkgOsPluginOpen', 'pkgOsPluginRender', 'pkgUpdateOnline', 'pkgUpdateFile', 'pkgRestartNow', 'pkgAgentBuild', 'pkgAgentBuildRequest', 'pkgBinStatus', 'pkgBinStatusRequest', 'pkgBinRetry', 'pkgLogTail', 'pkgLogTailRequest', 'pkgUpdateUpload', 'pkgUpdateInfo', 'pkgUpdateApplied', 'pkgDenied', 'pkgD2WrapOnMessage', 'pkgD2Pending', 'pkgD2Receive', 'pkgD2PollSummary', 'pkgOsPlan', 'pkgOsPlanRender', 'pkgOsPlanSelChange', 'pkgOsPlanRequest', 'pkgOsPlanDownload', 'pkgOsPlanInstall', 'pkgOsPlanMachToggle', 'pkgOsPlanMachSelAll', 'pkgOsStoreRequest', 'pkgOsStoreList', 'pkgOsStoreSelChange', 'pkgOsStoreDel'];
 
     obj.onWebUIStartupEnd = function () {
         try {
@@ -797,7 +830,7 @@ module.exports.pkgmanager = function (parent) {
                 span2.innerHTML = '<table id="osmanagerMenuTable" cellpadding=0 cellspacing=0 class="style1" style="width:100%"><tr>'
                     + '<td tabindex=0 id="MainTabOsUpdates" class="topbar_td style3x" style="padding-left:16px;padding-right:16px" onmouseup="pluginHandler.pkgmanager.pkgOsSidebarOpen()" onkeypress="if (event.key == \'Enter\') pluginHandler.pkgmanager.pkgOsSidebarOpen()">Aggiornamenti OS</td>'
                     + '<td tabindex=0 id="MainTabOsMgmt" class="topbar_td style3x" style="display:none;padding-left:16px;padding-right:16px" onmouseup="pluginHandler.pkgmanager.pkgOsAdminOpen()" onkeypress="if (event.key == \'Enter\') pluginHandler.pkgmanager.pkgOsAdminOpen()">Gestione aggiornamenti OS</td>'
-                    + '<td tabindex=0 id="MainTabOsPlugin" class="topbar_td style3x" style="display:none;padding-left:16px;padding-right:16px" onmouseup="pluginHandler.pkgmanager.pkgOsPluginOpen()" onkeypress="if (event.key == \'Enter\') pluginHandler.pkgmanager.pkgOsPluginOpen()">Aggiorna plugin</td>'
+                    + '<td tabindex=0 id="MainTabOsPlugin" class="topbar_td style3x" style="display:none;padding-left:16px;padding-right:16px" onmouseup="pluginHandler.pkgmanager.pkgOsPluginOpen()" onkeypress="if (event.key == \'Enter\') pluginHandler.pkgmanager.pkgOsPluginOpen()">Download plugin</td>'
                     + '<td class="topbar_td_end style3">&nbsp;</td>'
                     + '</tr></table>';
                 sub.parentNode.insertBefore(span, sub.nextSibling);
@@ -978,6 +1011,7 @@ module.exports.pkgmanager = function (parent) {
             var bo = document.getElementById('LeftMenuOsUpdates');
             if (bo != null) bo.style.opacity = '1';
             pluginHandler.pkgmanager.pkgOsPluginRender();
+            try { if (typeof userinfo != 'undefined' && userinfo != null && userinfo.siteadmin === 0xFFFFFFFF) { pluginHandler.pkgmanager.pkgBinStatusRequest(); pluginHandler.pkgmanager.pkgAgentBuildRequest(); pluginHandler.pkgmanager.pkgLogTailRequest(); } } catch (e2) { }
         } catch (e) { console.log('pkgmanager osplugin open failed: ' + e); }
     };
 
@@ -987,7 +1021,7 @@ module.exports.pkgmanager = function (parent) {
             if (m == null) return;
             var adm = ((typeof userinfo != 'undefined') && (userinfo != null) && (userinfo.siteadmin === 0xFFFFFFFF));
             var ver = ((window.pkgmanagerPluginVersion != null) ? String(window.pkgmanagerPluginVersion) : null);
-            var x = '<div style="margin-bottom:8px;font-size:16px"><b>Aggiorna plugin</b></div>' + pluginHandler.pkgmanager.pkgBinBanner();
+            var x = '<div style="margin-bottom:8px;font-size:16px"><b>Download plugin</b></div>' + pluginHandler.pkgmanager.pkgBinBanner();
             x += '<div style="margin-bottom:10px">Versione corrente del plugin: <b style="font-size:15px">v' + EscapeHtml((ver != null) ? ver : '?') + '</b>' + ((ver == null) ? ' <span style="color:#888">(si aggiorna al primo caricamento del catalogo)</span>' : '') + '</div>';
             if (adm) {
                 x += '<div style="margin-bottom:10px"><input type=button value="Aggiorna plugin (online)" title="Il SERVER scarica la nuova versione del plugin dal sorgente configurato, la verifica (sha384) e la installa con backup: serve il riavvio di MeshCentral per attivarla" onclick="pluginHandler.pkgmanager.pkgUpdateOnline()"> <input type=button value="Aggiorna plugin (file)" title="VIA AIRGAP: carica il pkgmanager.js nuovo da un file locale; il server lo verifica (JavaScript valido, versione, sha384), fa il backup e lo installa — serve il riavvio di MeshCentral per attivarla" onclick="pluginHandler.pkgmanager.pkgUpdateFile()"> <input type=button value="Riavvia server" title="Riavvia MeshCentral tramite il canale del launcher (riavvio pulito)" onclick="pluginHandler.pkgmanager.pkgRestartNow()"></div>';
@@ -995,12 +1029,34 @@ module.exports.pkgmanager = function (parent) {
                 x += '<div style="color:#888">La gestione degli aggiornamenti del plugin è riservata agli amministratori completi del server.</div>';
             }
             x += '<div id="pkgmanagerMsg" style="margin-top:10px;color:#888"></div>';
-            // v2.1.9: sezione "Binari agente" (solo admin, con stato core + disco)
-            var ab = window.pkgmanagerAgentBuild;
-            var abBtn = '<div style="margin-top:12px"><b>Binari agente</b> <input type=button value="Aggiorna" onclick="pluginHandler.pkgmanager.pkgAgentBuildRequest()"></div>';
-            if (ab == null) {
-                x += abBtn.replace('</div>', '<span style="color:#888;margin-left:8px">— clicca «Aggiorna» per lo stato dei download</span></div>');
-            } else {
+            if (adm) {
+                // v2.2.0: SEZIONE 1 — BINARI DOWNLOADER (del PLUGIN)
+                var bs = window.pkgmanagerBinStatus;
+                var bx = '<div style="margin-top:12px"><b>Binari del downloader</b> <span style="color:#888;font-size:12px">(compilati, per «Esporta downloader» — airgap senza Python)</span> <input type=button value="Verifica/ritenta" onclick="pluginHandler.pkgmanager.pkgBinStatusRequest()"> <input type=button value="Ritenta installazione" onclick="pluginHandler.pkgmanager.pkgBinRetry()" title="Azzera il contatore tentativi e rilancia il download/estrazione"></div>';
+                if (bs == null) {
+                    bx += '<div style="color:#888;font-size:12px;margin-top:4px">Stato non ancora caricato — premi «Verifica/ritenta».</div>';
+                } else {
+                    var miss = (bs.missing || []);
+                    bx += '<div style="font-size:13px;margin-top:4px">' + (bs.busy ? '<b>download/estrazione in corso…</b>' : '') + 'Piattaforme presenti: <b>' + (7 - miss.length) + '/7</b>' + ((miss.length > 0) ? ' — mancanti: ' + EscapeHtml(miss.join(', ')) : ' ✓') + ((bs.attempts > 0) ? (' — tentativi: ' + bs.attempts) : '') + '</div>';
+                    if (bs.lastError != null) { bx += '<div style="color:#b00;font-size:12px;margin-top:2px">Ultimo errore: ' + EscapeHtml(bs.lastError) + '</div>'; }
+                    bx += '<div style="color:#888;font-size:12px;margin-top:2px">Sorgente: ' + EscapeHtml(bs.url || '') + '</div>';
+                    bx += '<div style="color:#888;font-size:12px">Cartella: ' + EscapeHtml(bs.dir || '') + '/ (' + ((bs.files || []).length) + ' file)</div>';
+                    if ((bs.files != null) && (bs.files.length > 0)) {
+                        bx += '<table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:4px">';
+                        for (var bi = 0; bi < bs.files.length; bi++) {
+                            var bf = bs.files[bi];
+                            bx += '<tr><td style="padding:1px 6px">' + EscapeHtml(bf.name) + '</td><td style="padding:1px 6px;text-align:right;color:#888">' + Math.round((bf.size || 0) / 1048576) + ' MiB</td></tr>';
+                        }
+                        bx += '</table>';
+                    }
+                }
+                x += '<div style="border:1px solid #eee;border-radius:6px;padding:8px 10px;margin-top:12px">' + bx + '</div>';
+                // SEZIONE 2 — BINARI AGENTE (CORE MESHCENTRAL)
+                var ab = window.pkgmanagerAgentBuild;
+                var coreBtn = '<div style="margin-top:12px"><b>Binari agente (core MeshCentral)</b> <span style="color:#888;font-size:12px">— i meshcore/meshagent che il server scarica dai release GitHub verificati (agentbuilds)</span> <input type=button value="Aggiorna stato" onclick="pluginHandler.pkgmanager.pkgAgentBuildRequest()"></div>';
+                if (ab == null) {
+                    x += '<div style="border:1px solid #eee;border-radius:6px;padding:8px 10px;margin-top:6px">' + coreBtn + '<div style="color:#888;font-size:12px;margin-top:4px">Stato non ancora caricato — premi «Aggiorna stato».</div></div>';
+                } else {
                 var core = ab.core;
                 var st = '';
                 if (core == null) { st = '<span style="color:#888">Stato agentDefaults non disponibile su questa versione di MeshCentral (core senza agentbuilds.js).</span>'; }
@@ -1029,7 +1085,13 @@ module.exports.pkgmanager = function (parent) {
                     for (var pi = 0; pi < d.items.length; pi++) { if (!d.items[pi].dir) { n++; tot += d.items[pi].size || 0; } }
                     st += '<div style="margin-top:6px;font-size:12px;color:#888">' + EscapeHtml(d.dir) + '/: ' + n + ' file, ' + Math.round(tot / 1048576) + ' MiB</div>';
                 }
-                x += abBtn + '<div style="margin-top:6px">' + st + '</div>';
+                x += '<div style="border:1px solid #eee;border-radius:6px;padding:8px 10px;margin-top:6px">' + coreBtn + '<div style="margin-top:6px">' + st + '</div></div>';
+                }
+                // SEZIONE 3 — LOG DEL PLUGIN
+                var lt = window.pkgmanagerLogTail;
+                var logX = '<div style="margin-top:12px"><b>Log del plugin</b> <span style="color:#888;font-size:12px">(ultime righe; file completo: pkgmanager.log in datapath/plugins/pkgmanager)</span> <input type=button value="Aggiorna" onclick="pluginHandler.pkgmanager.pkgLogTailRequest()"></div>';
+                logX += '<pre style="background:#111;color:#cde;font-size:11px;padding:8px;border-radius:6px;max-height:320px;overflow:auto;margin-top:6px">' + (((lt != null) && (lt.lines != null)) ? EscapeHtml(lt.lines.join('\n')) : 'Premi «Aggiorna» per caricare le ultime righe.') + '</pre>';
+                x += logX;
             }
             x += '<div style="margin-top:14px;color:#888;font-size:12px">Canali di aggiornamento: <b>online</b> (il server scarica dal sorgente configurato in config.json) oppure <b>file</b> (airgap: carichi il pkgmanager.js nuovo da qui). In alternativa la scheda «Plugins» di My Server gestisce l\'upgrade dallo zip dichiarato in downloadUrl.</div>';
             m.innerHTML = x;
@@ -2076,6 +2138,18 @@ module.exports.pkgmanager = function (parent) {
 
     // Server-side rejection of management ops from non-admins.
     // v1.9.6: auto-aggiornamento del plugin (solo full admin)
+    obj.pkgBinStatusRequest = function () { try { meshserver.send({ action: 'plugin', plugin: 'pkgmanager', pluginaction: 'binstatus' }); } catch (e) { } };
+    obj.pkgBinRetry = function () { try { meshserver.send({ action: 'plugin', plugin: 'pkgmanager', pluginaction: 'binretry' }); } catch (e) { } };
+    obj.pkgBinStatus = function (server, message) {
+        try { window.pkgmanagerBinStatus = message; pluginHandler.pkgmanager.pkgOsPluginRender(); } catch (e) { }
+    };
+    obj.pkgLogTailRequest = function () { try { meshserver.send({ action: 'plugin', plugin: 'pkgmanager', pluginaction: 'plogtail' }); } catch (e) { } };
+    obj.pkgLogTail = function (server, message) {
+        try {
+            window.pkgmanagerLogTail = message;
+            pluginHandler.pkgmanager.pkgOsPluginRender();
+        } catch (e) { }
+    };
     obj.pkgAgentBuildRequest = function () {
         try { meshserver.send({ action: 'plugin', plugin: 'pkgmanager', pluginaction: 'agentbuildinfo' }); } catch (e) { }
     };
@@ -2932,7 +3006,7 @@ module.exports.pkgmanager = function (parent) {
             var db = parent.parent.db;
             if ((db == null) || (typeof db.GetAllType != 'function')) { return; }
             db.GetAllType('user', function (err, docs) {
-                if (err != null) { console.log('pkgmanager[server]: user scan failed: ' + err); return; }
+                if (err != null) { obj.plog('user scan failed: ' + err); return; }
                 if (docs == null) { return; }
                 for (var i = 0; i < docs.length; i++) {
                     var u = docs[i];
@@ -2952,11 +3026,11 @@ module.exports.pkgmanager = function (parent) {
                     }
                     if (isAdmin) {
                         try { parent.fs.symlinkSync(obj.storePath, link, 'junction'); }
-                        catch (e) { console.log('pkgmanager[server]: store link failed for ' + u._id + ': ' + e); }
+                        catch (e) { obj.plog('store link failed for ' + u._id + ': ' + e); }
                     }
                 }
             });
-        } catch (e) { console.log('pkgmanager[server]: syncStoreLinks failed: ' + e); }
+        } catch (e) { obj.plog('syncStoreLinks failed: ' + e); }
     };
     // callHook('server_startup') fires after the DB is assigned: the links
     // exist before any admin can log in and browse "My Files".
@@ -2991,7 +3065,7 @@ module.exports.pkgmanager = function (parent) {
             var active = (globalThis.__pkgmanagerActiveVersion || obj.version);
             if (auto && (typeof disk.version == 'string') && (disk.version !== obj.version) && (disk.version !== active) && !obj.pkgRestartScheduled) {
                 obj.pkgRestartScheduled = true;
-                console.log('pkgmanager[server]: versione ' + disk.version + ' installata su disco (in esecuzione ' + obj.version + '); riavvio del server tra 2 secondi per caricare il nuovo codice...');
+                obj.plog('versione ' + disk.version + ' installata su disco (in esecuzione ' + obj.version + '); riavvio del server tra 2 secondi per caricare il nuovo codice...');
                 setTimeout(function () { console.log('Server restart...'); process.exit(0); }, 2000);
                 return true;
             }
@@ -3016,14 +3090,14 @@ module.exports.pkgmanager = function (parent) {
     obj.pkgLocalConfigPath = parent.path.join(parent.parent.datapath, 'plugins', 'pkgmanager', 'config.json');
     obj.pkgConfigInvariantCheck = function () {
         var local = null;
-        try { local = JSON.parse(parent.fs.readFileSync(obj.pkgLocalConfigPath)); } catch (e) { console.log('pkgmanager[server]: config invariant: config.json locale non leggibile: ' + e); return; }
+        try { local = JSON.parse(parent.fs.readFileSync(obj.pkgLocalConfigPath)); } catch (e) { obj.plog('config invariant: config.json locale non leggibile: ' + e); return; }
         try {
             var changed = false;
             if (local.configUrl !== obj.canonicalConfigUrl) { local.configUrl = obj.canonicalConfigUrl; changed = true; }
             if (local.downloadUrl !== obj.canonicalDownloadUrl) { local.downloadUrl = obj.canonicalDownloadUrl; changed = true; }
             if (changed) {
                 parent.fs.writeFileSync(obj.pkgLocalConfigPath, JSON.stringify(local, null, 2));
-                console.log('pkgmanager[server]: config invariant: config.json locale RIPUNTATO ai canonical URL (era disallineato).');
+                obj.plog('config invariant: config.json locale RIPUNTATO ai canonical URL (era disallineato).');
                 try {
                     parent.parent.db.getPlugins(function (err, docs) {
                         if ((err != null) || (docs == null)) { return; }
@@ -3033,19 +3107,19 @@ module.exports.pkgmanager = function (parent) {
                     });
                 } catch (e) { }
             }
-        } catch (e) { console.log('pkgmanager[server]: config invariant (locale) failed: ' + e); }
+        } catch (e) { obj.plog('config invariant (locale) failed: ' + e); }
         // 2) verifica remota (best effort)
         try {
             fetch(obj.canonicalConfigUrl).then(function (r) { return r.text(); }).then(function (t) {
                 try {
                     var rc = JSON.parse(t);
                     if (rc.configUrl !== obj.canonicalConfigUrl) {
-                        console.log('pkgmanager[server]: ERRORE INVARIANTE config: il config.json REMOTO (' + obj.canonicalConfigUrl + ') dichiara configUrl="' + rc.configUrl + '" != URL servito — la schermata Plugin CRASHERA\' su MeshCentral ufficiale (correggere il campo nel repo, release nuova).');
+                        obj.plog('ERRORE INVARIANTE config: il config.json REMOTO (' + obj.canonicalConfigUrl + ') dichiara configUrl="' + rc.configUrl + '" != URL servito — la schermata Plugin CRASHERA\' su MeshCentral ufficiale (correggere il campo nel repo, release nuova).');
                     } else {
-                        console.log('pkgmanager[server]: config invariant OK (remoto auto-riferente, v' + rc.version + ').');
+                        obj.plog('config invariant OK (remoto auto-riferente, v' + rc.version + ').');
                     }
-                } catch (e2) { console.log('pkgmanager[server]: config invariant: config remoto non JSON: ' + e2); }
-            }).catch(function (e3) { console.log('pkgmanager[server]: config invariant: verifica remota saltata (' + e3 + ')'); });
+                } catch (e2) { obj.plog('config invariant: config remoto non JSON: ' + e2); }
+            }).catch(function (e3) { obj.plog('config invariant: verifica remota saltata (' + e3 + ')'); });
         } catch (e) { }
     };
 
@@ -3060,8 +3134,8 @@ module.exports.pkgmanager = function (parent) {
                 webserver.app.get(d.url + 'pkgstore.ashx', function (req, res) { obj.handleStoreGet(req, res); });
                 webserver.app.post(d.url + 'pkgstore.ashx', webserver.bodyParser.raw({ type: function () { return true; }, limit: '512mb' }), function (req, res) { obj.handleStorePost(req, res); });
             }
-            console.log('pkgmanager[server]: /pkgstore.ashx registered (airgap artifact route: GET download + POST upload/delete)');
-        } catch (e) { console.log('pkgmanager[server]: route registration failed: ' + e); }
+            obj.plog('/pkgstore.ashx registered (airgap artifact route: GET download + POST upload/delete)');
+        } catch (e) { obj.plog('route registration failed: ' + e); }
     };
 
     // GET: agent/browser download, gated by the per-process token (composed
@@ -3099,7 +3173,7 @@ module.exports.pkgmanager = function (parent) {
                 parent.fs.writeFile(obj.updatePendingPath, req.body, function (e4) {
                     if (e4 != null) { try { res.status(500).json({ ok: false, error: String(e4) }); } catch (e5) { } return; }
                     var hu = crypto.createHash('sha384').update(req.body).digest('hex');
-                    console.log('pkgmanager[server]: plugin update uploaded (' + req.body.length + ' bytes, sha384=' + hu.slice(0, 16) + '...) by ' + wu._id);
+                    obj.plog('plugin update uploaded (' + req.body.length + ' bytes, sha384=' + hu.slice(0, 16) + '...) by ' + wu._id);
                     try { res.json({ ok: true, sha384: hu, size: req.body.length }); } catch (e5) { }
                 });
                 return;
@@ -3111,7 +3185,7 @@ module.exports.pkgmanager = function (parent) {
                     if ((err != null) || (!st.isFile())) { res.status(404).json({ ok: false, error: 'Artefatto non presente.' }); return; }
                     parent.fs.unlink(full, function (e2) {
                         if (e2 != null) { res.status(500).json({ ok: false, error: String(e2) }); return; }
-                        console.log('pkgmanager[server]: artifact deleted: ' + p);
+                        obj.plog('artifact deleted: ' + p);
                         res.json({ ok: true });
                     });
                 });
@@ -3125,7 +3199,7 @@ module.exports.pkgmanager = function (parent) {
                 parent.fs.writeFile(full, body, function (e4) {
                     if (e4 != null) { res.status(500).json({ ok: false, error: String(e4) }); return; }
                     var h = crypto.createHash('sha384').update(body).digest('hex');
-                    console.log('pkgmanager[server]: artifact uploaded: ' + p + ' (' + body.length + ' bytes) by ' + wu._id);
+                    obj.plog('artifact uploaded: ' + p + ' (' + body.length + ' bytes) by ' + wu._id);
                     res.json({ ok: true, sha384: h, size: body.length });
                 });
             });
@@ -3233,7 +3307,7 @@ module.exports.pkgmanager = function (parent) {
             var installed = {};
             var its = ((mm != null) && Array.isArray(mm.items)) ? mm.items : [];
             for (var ii = 0; ii < its.length; ii++) { var sp = String(its[ii]).indexOf(' '); if (sp > 0) { installed[String(its[ii]).slice(0, sp)] = String(its[ii]).slice(sp + 1).trim(); } }
-            console.log('pkgmanager[server]: osplan ' + mname + ': ' + Object.keys(installed).length + ' pacchetti installati (' + groupsBy[codename].distro + ' ' + codename + ')');
+            obj.plog('osplan ' + mname + ': ' + Object.keys(installed).length + ' pacchetti installati (' + groupsBy[codename].distro + ' ' + codename + ')');
             var idx = await fIndex(codename);
             var queue = []; var queued = {};
             var pushP = function (name, reason) { var stz = idx[name]; if (stz == null) { return; } var cand = fbest(stz); var key = name + '_' + cand.Version; if (queued[key] != null) { return; } queued[key] = 1; queue.push({ name: name, reason: reason, st: cand }); };
@@ -3261,7 +3335,7 @@ module.exports.pkgmanager = function (parent) {
                 }
                 frontier = next;
             }
-            console.log('pkgmanager[server]: osplan ' + mname + ': delta+dipendenze = ' + queue.length + ' pacchetti');
+            obj.plog('osplan ' + mname + ': delta+dipendenze = ' + queue.length + ' pacchetti');
             for (var qi = 0; qi < queue.length; qi++) {
                 var qe = queue[qi];
                 var file2 = qe.name + '_' + qe.st.Version + '_' + (qe.st.Architecture || 'amd64') + '.deb';
@@ -3300,7 +3374,7 @@ module.exports.pkgmanager = function (parent) {
         obj.fs.readFile(obj.catalogPath, function (err2, data) {
             var cat = null;
             try { cat = JSON.parse(data); } catch (e) { }
-            console.log('pkgmanager[server]: catalog read ' + ((cat != null) ? 'ok (' + ((cat.packages != null) ? cat.packages.length : '?') + ' packages)' : 'FAILED: ' + err2));
+            obj.plog('catalog read ' + ((cat != null) ? 'ok (' + ((cat.packages != null) ? cat.packages.length : '?') + ' packages)' : 'FAILED: ' + err2));
             // Template dispatcher (case 'plugin' on message.action) calls
             // pluginHandler[message.plugin][message.method](server, message):
             // plugin and method must be at the TOP level, not nested in event.
@@ -3610,7 +3684,7 @@ log('prossimo passo: copia ' + OUT_DIR + '/ nello store del server (My Files -> 
                     parent.fs.mkdirSync(outDir, { recursive: true });
                     var fname = 'meshos-downloader-' + platform + ((platform.indexOf('win') === 0) ? '.exe' : '');
                     parent.fs.writeFileSync(parent.path.join(outDir, fname), bin);
-                    console.log('pkgmanager[server]: exportdownloader -> binario ' + fname + ' (' + Math.round(bin.length / 1048576) + 'MB, inventario ' + Math.round(inv.length / 1024) + 'KB patchato nello slot)');
+                    obj.plog('exportdownloader -> binario ' + fname + ' (' + Math.round(bin.length / 1048576) + 'MB, inventario ' + Math.round(inv.length / 1024) + 'KB patchato nello slot)');
                     session.send({ action: 'plugin', plugin: 'pkgmanager', method: 'pkgDownloaderReady', platform: platform, file: fname, size: bin.length });
                 } catch (e) { obj.replyCatalog(session, null, 'Patch binario fallita: ' + e); }
             });
@@ -3642,24 +3716,53 @@ log('prossimo passo: copia ' + OUT_DIR + '/ nello store del server (My Files -> 
             parent.fs.writeFileSync(selfPath, String(code));
             // v2.1.7: allinea la versione anche nel config.json a disco — e'
             // la fonte di verita' del check auto-restart (poll/immediato).
-            try { var _cfg = JSON.parse(parent.fs.readFileSync(obj.pkgLocalConfigPath)); _cfg.version = v; parent.fs.writeFileSync(obj.pkgLocalConfigPath, JSON.stringify(_cfg, null, 2)); } catch (e2) { console.log('pkgmanager[server]: config.json non allineato alla v' + v + ': ' + e2); }
+            try { var _cfg = JSON.parse(parent.fs.readFileSync(obj.pkgLocalConfigPath)); _cfg.version = v; parent.fs.writeFileSync(obj.pkgLocalConfigPath, JSON.stringify(_cfg, null, 2)); } catch (e2) { obj.plog('config.json non allineato alla v' + v + ': ' + e2); }
             try { if (parent.fs.existsSync(obj.updatePendingPath)) { parent.fs.unlinkSync(obj.updatePendingPath); } } catch (e2) { }
             obj._pendingUpdate = null;
-            console.log('pkgmanager[server]: plugin updated ' + obj.version + ' -> ' + v + ' (backup: ' + parent.path.basename(bakPath) + ', sha384=' + sha.slice(0, 16) + '...)');
+            obj.plog('plugin updated ' + obj.version + ' -> ' + v + ' (backup: ' + parent.path.basename(bakPath) + ', sha384=' + sha.slice(0, 16) + '...)');
             var auto = true;
             try { var _pc = parent.parent.config.settings.plugins; auto = ((_pc == null) || (_pc.pkgmanagerAutoRestart !== false)); } catch (e3) { }
             var msg = 'Plugin aggiornato a v' + v + ' (backup: pkgmanager.js.bak-' + obj.version + ', sha384 ' + sha.slice(0, 16) + '...).';
-            if (auto) { msg += ' Riavvio automatico di MeshCentral tra 3 secondi.'; setTimeout(function () { console.log('pkgmanager[server]: auto-restart per attivare la v' + v); console.log('Server restart...'); process.exit(0); }, 3000); } else { msg += ' RIAVVIA MeshCentral per attivare la nuova versione.'; }
+            if (auto) { msg += ' Riavvio automatico di MeshCentral tra 3 secondi.'; setTimeout(function () { obj.plog('auto-restart per attivare la v' + v); console.log('Server restart...'); process.exit(0); }, 3000); } else { msg += ' RIAVVIA MeshCentral per attivare la nuova versione.'; }
             session.send({ action: 'plugin', plugin: 'pkgmanager', method: 'pkgUpdateApplied', version: v, backup: parent.path.basename(bakPath), auto: auto, msg: msg });
         } catch (e) { obj.replyCatalog(session, null, 'Aggiornamento plugin fallito: ' + e); }
     };
 
     obj.serveraction = function (command, session, parent2) {
-        console.log('pkgmanager[server]: serveraction ' + command.pluginaction + ' from user ' + command.userid);
+        obj.plog('serveraction ' + command.pluginaction + ' from user ' + command.userid);
         var isAdmin = ((session != null) && (session.user != null) && (session.user.siteadmin === 0xFFFFFFFF));
         function deny() { try { session.send({ action: 'plugin', plugin: 'pkgmanager', method: 'pkgDenied', msg: 'Operazioni di gestione riservate agli amministratori del server.' }); } catch (e) { } }
 
         if (command.pluginaction == 'list') { obj.replyCatalog(session, null, null); return; }
+
+        // v2.2.0: STATO BINARI DOWNLOADER DEL PLUGIN (bin/meshos-downloader-*)
+        if (command.pluginaction == 'binstatus') {
+            if (!isAdmin) { deny(); return; }
+            (function () {
+                var files = [];
+                try { var names = parent.fs.readdirSync(obj.binDir); for (var i in names) { var f = parent.path.join(obj.binDir, names[i]); var stf = parent.fs.statSync(f); if (stf.isFile()) files.push({ name: names[i], size: stf.size }); } } catch (e1) { }
+                try { session.send({ action: 'plugin', plugin: 'pkgmanager', method: 'pkgBinStatus', platforms: obj.downloaderPlatforms, missing: obj.binariesMissing(), busy: (obj.ensureBinariesBusy === true), attempts: (obj.ensureBinariesAttempts || 0), lastError: (obj.binariesLastError || null), url: obj.binariesUrl, dir: obj.binDir, files: files, version: obj.version }); } catch (e2) { }
+            })();
+            return;
+        }
+        // v2.2.0: RITENTA MANUALE dei binari downloader (azzera i tentativi)
+        if (command.pluginaction == 'binretry') {
+            if (!isAdmin) { deny(); return; }
+            obj.ensureBinariesAttempts = 0;
+            obj.plog('binretry: ritento il download dei binari del downloader su richiesta admin.');
+            setTimeout(function () { try { obj.ensureBinaries(); } catch (e3) { } }, 100);
+            try { obj.replyCatalog(session, null, 'Ricerca/estrazione binari del downloader rilanciata.'); } catch (e4) { }
+            return;
+        }
+        // v2.2.0: CODA DEI LOG DEL PLUGIN
+        if (command.pluginaction == 'plogtail') {
+            if (!isAdmin) { deny(); return; }
+            var lines = obj.plogBuf.slice(-400);
+            var size = null;
+            try { size = parent.fs.statSync(obj.logPath).size; } catch (e5) { }
+            try { session.send({ action: 'plugin', plugin: 'pkgmanager', method: 'pkgLogTail', lines: lines, path: (obj.logPath || ''), size: size }); } catch (e6) { }
+            return;
+        }
 
         // v2.1.9: STATO DEI BINARI AGENTE DEFAULT (agentbuilds) — il core
         // (agentbuilds.js) espone agentDefaults.status() con per-file status/
@@ -3708,7 +3811,7 @@ log('prossimo passo: copia ' + OUT_DIR + '/ nello store del server (My Files -> 
         // -> il launcher rilancia il figlio in 500ms (riavvio pulito).
         if (command.pluginaction == 'serverrestart') {
             if (!isAdmin) { deny(); return; }
-            console.log('pkgmanager[server]: server restart requested by ' + command.userid);
+            obj.plog('server restart requested by ' + command.userid);
             try { obj.replyCatalog(session, null, 'Riavvio di MeshCentral tra 2 secondi…'); } catch (e) { }
             setTimeout(function () { console.log('Server restart...'); process.exit(0); }, 2000);
             return;
@@ -3716,7 +3819,7 @@ log('prossimo passo: copia ' + OUT_DIR + '/ nello store del server (My Files -> 
 
         // v1.9.6: AUTO-AGGIORNAMENTO DEL PLUGIN — online e airgap
         if (command.pluginaction == 'pluginupdate-check') {
-            if (!isAdmin) { console.log('pkgmanager[server]: denied pluginupdate-check for user ' + command.userid); deny(); return; }
+            if (!isAdmin) { obj.plog('denied pluginupdate-check for user ' + command.userid); deny(); return; }
             (function () {
                 // v2.1.12: cache-buster — raw/Fastly e' afflitto da POP disallineati
                 // (il check poteva leggere una versione vecchia e rispondere
@@ -3730,24 +3833,24 @@ log('prossimo passo: copia ' + OUT_DIR + '/ nello store del server (My Files -> 
                     var sha = crypto.createHash('sha384').update(code).digest('hex');
                     var cmp = obj.cmpSemver(v, obj.version);
                     obj._pendingUpdate = ((cmp > 0) ? { code: code, sha: sha, version: v } : null);
-                    console.log('pkgmanager[server]: pluginupdate-check -> corrente ' + obj.version + ', remota ' + v + ' (' + ((cmp > 0) ? 'aggiornamento disponibile' : 'gia aggiornato') + ')');
+                    obj.plog('pluginupdate-check -> corrente ' + obj.version + ', remota ' + v + ' (' + ((cmp > 0) ? 'aggiornamento disponibile' : 'gia aggiornato') + ')');
                     session.send({ action: 'plugin', plugin: 'pkgmanager', method: 'pkgUpdateInfo', current: obj.version, latest: v, newer: (cmp > 0), sha384: sha, url: obj.updateSrcUrl });
                 }).catch(function (err) {
-                    console.log('pkgmanager[server]: pluginupdate-check error: ' + err);
+                    obj.plog('pluginupdate-check error: ' + err);
                     obj.replyCatalog(session, null, 'Aggiornamento plugin online fallito: ' + err + ' — se il server e airgap usa «Aggiorna plugin (file)».');
                 });
             })();
             return;
         }
         if (command.pluginaction == 'pluginupdate-apply') {
-            if (!isAdmin) { console.log('pkgmanager[server]: denied pluginupdate-apply for user ' + command.userid); deny(); return; }
+            if (!isAdmin) { obj.plog('denied pluginupdate-apply for user ' + command.userid); deny(); return; }
             var pu = obj._pendingUpdate;
             if ((pu == null) || (String(command.sha || '') !== pu.sha)) { obj.replyCatalog(session, null, 'Aggiornamento plugin: nessun download in sospeso o hash non corrispondente — rifai «Aggiorna plugin (online)».'); return; }
             obj.pluginInstallUpdate(pu.code, pu.version, session);
             return;
         }
         if (command.pluginaction == 'pluginupdate-airgap-apply') {
-            if (!isAdmin) { console.log('pkgmanager[server]: denied pluginupdate-airgap-apply for user ' + command.userid); deny(); return; }
+            if (!isAdmin) { obj.plog('denied pluginupdate-airgap-apply for user ' + command.userid); deny(); return; }
             obj.fs.readFile(obj.updatePendingPath, 'utf8', function (err2, code) {
                 if ((err2 != null) || (code == null) || (code == '')) { obj.replyCatalog(session, null, 'Aggiornamento plugin: nessun file caricato — usa «Aggiorna plugin (file)» e seleziona il pkgmanager.js nuovo.'); return; }
                 obj.pluginInstallUpdate(code, null, session);
@@ -3778,7 +3881,7 @@ log('prossimo passo: copia ' + OUT_DIR + '/ nello store del server (My Files -> 
                     var plan = await obj.osPlanCompute(pmachs, pget, pskipped);
                     try { session.send({ action: 'plugin', plugin: 'pkgmanager', method: 'pkgOsPlan', plan: plan }); } catch (e) { }
                 } catch (err) {
-                    console.log('pkgmanager[server]: osplan error: ' + err);
+                    obj.plog('osplan error: ' + err);
                     try { obj.replyCatalog(session, null, 'Calcolo piano aggiornamenti fallito: ' + err); } catch (e3) { }
                 }
             })();
@@ -3790,7 +3893,7 @@ log('prossimo passo: copia ' + OUT_DIR + '/ nello store del server (My Files -> 
         // NON crea piu' bundle nel catalogo: la vista Aggiornamenti OS lavora
         // direttamente sul piano (elenco pacchetti + stato server).
         if (command.pluginaction == 'osfetch') {
-            if (!isAdmin) { console.log('pkgmanager[server]: denied osfetch for user ' + command.userid + ' (not full site admin)'); deny(); return; }
+            if (!isAdmin) { obj.plog('denied osfetch for user ' + command.userid + ' (not full site admin)'); deny(); return; }
             var fmachs = command.machines;
             if ((fmachs == null) || (Array.isArray(fmachs) !== true) || (fmachs.length === 0)) { obj.replyCatalog(session, null, 'Nessuna macchina nella scansione: prima fai «Scansiona macchine» dalla vista Aggiornamenti OS.'); return; }
             var fskipped = [];
@@ -3807,7 +3910,7 @@ log('prossimo passo: copia ' + OUT_DIR + '/ nello store del server (My Files -> 
                         for (var ui = 0; ui < grp.updates.length; ui++) {
                             var u = grp.updates[ui];
                             if (u.inStore === true) { continue; } // gia' presente: niente re-download
-                            if (dl > 0 && (dl % 25) === 0) { console.log('pkgmanager[server]: osfetch ... ' + dl + ' download effettuati'); }
+                            if (dl > 0 && (dl % 25) === 0) { obj.plog('osfetch ... ' + dl + ' download effettuati'); }
                             dl++;
                             var buf = null;
                             try { buf = await fget(u.origUrl); } catch (e1) { try { buf = await fget(u.url); } catch (e2) { } }
@@ -3815,13 +3918,13 @@ log('prossimo passo: copia ' + OUT_DIR + '/ nello store del server (My Files -> 
                             parent.fs.writeFileSync(parent.path.join(sdir, u.file), buf);
                             u.sha384 = crypto.createHash('sha384').update(buf).digest('hex');
                             u.size = buf.length; u.inStore = true; dlok++;
-                            console.log('pkgmanager[server]: osfetch ok ' + grp.storeDirName + '/' + u.file + ' (' + Math.round(buf.length / 1024) + 'KB)');
+                            obj.plog('osfetch ok ' + grp.storeDirName + '/' + u.file + ' (' + Math.round(buf.length / 1024) + 'KB)');
                         }
                     }
-                    console.log('pkgmanager[server]: osfetch -> ' + dlok + ' scaricati, ' + fskipped.length + ' saltati');
+                    obj.plog('osfetch -> ' + dlok + ' scaricati, ' + fskipped.length + ' saltati');
                     try { session.send({ action: 'plugin', plugin: 'pkgmanager', method: 'pkgOsPlan', plan: plan, opAck: 'Scaricati ' + dlok + ' nuovi file nello store; ' + fskipped.length + ' saltati (dettaglio qui sotto).' }); } catch (e) { }
                 } catch (err) {
-                    console.log('pkgmanager[server]: osfetch error: ' + err);
+                    obj.plog('osfetch error: ' + err);
                     try { obj.replyCatalog(session, null, 'Download aggiornamenti fallito: ' + err + ' — se il server e airgap usa «Esporta downloader…» nella vista Aggiornamenti OS.'); } catch (e3) { }
                 }
             })();
@@ -3863,14 +3966,14 @@ log('prossimo passo: copia ' + OUT_DIR + '/ nello store del server (My Files -> 
         // admin-only). platform 'py' keeps the v1.8.0 stand-alone Python
         // script as the documented fallback.
         if (command.pluginaction == 'exportdownloader') {
-            if (!isAdmin) { console.log('pkgmanager[server]: denied exportdownloader for user ' + command.userid + ' (not full site admin)'); deny(); return; }
+            if (!isAdmin) { obj.plog('denied exportdownloader for user ' + command.userid + ' (not full site admin)'); deny(); return; }
             var xmachs = command.machines;
             if ((xmachs == null) || (Array.isArray(xmachs) !== true) || (xmachs.length === 0)) { obj.replyCatalog(session, null, 'Nessuna macchina nella scansione: prima fai «Scansiona macchine» dalla vista Aggiornamenti OS.'); return; }
             var xplat = String(command.platform || '');
             if (xplat == 'py') {
                 try {
                     var xscript = obj.buildPyDownloader(xmachs);
-                    console.log('pkgmanager[server]: exportdownloader -> meshos-downloader.py (' + Math.round(xscript.length / 1024) + 'KB, ' + xmachs.length + ' macchina/e incorporate)');
+                    obj.plog('exportdownloader -> meshos-downloader.py (' + Math.round(xscript.length / 1024) + 'KB, ' + xmachs.length + ' macchina/e incorporate)');
                     session.send({ action: 'plugin', plugin: 'pkgmanager', method: 'pkgDownloaderReady', filename: 'meshos-downloader.py', script: xscript });
                 } catch (e) { obj.replyCatalog(session, null, 'Generazione downloader fallita: ' + e); }
                 return;
@@ -3951,13 +4054,13 @@ log('prossimo passo: copia ' + OUT_DIR + '/ nello store del server (My Files -> 
                 if (insts2.length > 0) { cmd2 += ' && ' + insts2.join(' && '); }
                 pkgB[osk] = { type: ((osk == 'windows') ? 1 : 3), cmd: cmd2, artifacts: fl.map(function (x) { return String(x.file); }), timeout: 900, kind: 'os' };
             }
-            console.log('pkgmanager[server]: import manifest -> bundle ' + pkgid + ' (' + man.files.length + ' file)');
+            obj.plog('import manifest -> bundle ' + pkgid + ' (' + man.files.length + ' file)');
             command.pkg = pkgB;
             command.pluginaction = 'save';
         }
 
         if ((command.pluginaction == 'save') || (command.pluginaction == 'delete')) {
-            if (!isAdmin) { console.log('pkgmanager[server]: denied ' + command.pluginaction + ' for user ' + command.userid + ' (not full site admin)'); deny(); return; }
+            if (!isAdmin) { obj.plog('denied ' + command.pluginaction + ' for user ' + command.userid + ' (not full site admin)'); deny(); return; }
             if (command.pluginaction == 'save') {
                 var pkg = command.pkg;
                 if ((pkg == null) || (typeof pkg.id != 'string') || (!/^[a-zA-Z0-9._-]+$/.test(pkg.id))) { obj.replyCatalog(session, null, 'ID pacchetto non valido (usa lettere, numeri, . _ -).'); return; }
@@ -3985,7 +4088,7 @@ log('prossimo passo: copia ' + OUT_DIR + '/ nello store del server (My Files -> 
                     if (idx >= 0) { cat.packages[idx] = clean; } else { cat.packages.push(clean); }
                     obj.fs.writeFile(obj.catalogPath, JSON.stringify(cat, null, 2), function (e2) {
                         if (e2 != null) { obj.replyCatalog(session, null, 'Scrittura catalogo fallita: ' + e2); resSave(); return; }
-                        console.log('pkgmanager[server]: package saved: ' + clean.id);
+                        obj.plog('package saved: ' + clean.id);
                         obj.replyCatalog(session, 'Pacchetto salvato: ' + clean.id, null);
                         resSave();
                     });
@@ -4005,7 +4108,7 @@ log('prossimo passo: copia ' + OUT_DIR + '/ nello store del server (My Files -> 
                     obj.fs.writeFile(obj.catalogPath, JSON.stringify(cat, null, 2), function (e2) {
                         if (e2 != null) { obj.replyCatalog(session, null, 'Scrittura catalogo fallita: ' + e2); resDel(); return; }
                         try { parent.fs.rmSync(parent.path.join(obj.storePath, delId), { recursive: true, force: true }); } catch (e3) { }
-                        console.log('pkgmanager[server]: package deleted: ' + delId);
+                        obj.plog('package deleted: ' + delId);
                         obj.replyCatalog(session, 'Pacchetto eliminato: ' + delId, null);
                         resDel();
                     });

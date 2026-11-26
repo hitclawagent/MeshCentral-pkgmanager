@@ -2,8 +2,10 @@
 
 A [MeshCentral](https://github.com/Ylianst/MeshCentral) plugin for **remote package installation** on Windows, Linux and macOS agents. Catalog-driven, with **airgap installs** (devices never touch the internet: artifacts are downloaded from the MeshCentral server itself over the LAN).
 
-Current version: **2.1.12** — requires MeshCentral **1.3.1**
+Current version: **2.2.0** — requires MeshCentral **1.3.1**
 
+> **2.2.0**: dedicated "Download plugin" tab — (1) plugin version + online/file update + server restart, (2) "Binari del downloader" section with the plugin's own compiled-binary state (7 platforms, files, source URL, last error, "Ritenta installazione" that resets the attempt counter), (3) "Binari agente (core MeshCentral)" clearly separated from the plugin binaries, (4) "Log del plugin" — the plugin now keeps its own detailed log: ring buffer of 500 lines in memory + `pkgmanager.log` in datapath (rotated at 1 MB), every server-side action logged, tail visible from the UI. All plugin server `console.log` lines now flow through the logger.
+>
 > **2.1.12**: cache-buster on the self-update check — raw/Fastly POPs can be out of sync for minutes (the check answered "already updated" against a stale copy); each check now fetches a unique URL so the version is always read fresh.
 >
 > **2.1.11**: fix downloader binaries — extraction no longer shells out to `unzip` (absent in minimal LXC containers, which made `ensureBinaries` fail silently and the banner stick on "7 piattaforme mancanti"): now pure-Node yauzl (resolved from the server parentpath, since the plugin lives outside node_modules); retries also on extraction errors; the last error is shown in the banner.
