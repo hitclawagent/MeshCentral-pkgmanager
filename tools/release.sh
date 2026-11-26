@@ -35,6 +35,8 @@ assert cfg['version'] == ver, f"config.json version {cfg['version']} != {ver}"
 src = open('pkgmanager.js').read()
 m = re.search(r"obj\.version = '([^']+)'", src)
 assert m and m.group(1) == ver, f"pkgmanager.js version {m and m.group(1)} != {ver}"
+mc = re.search(r"obj\.pkgClientVersion = function \(\) \{ return '([^']+)'", src)
+assert mc and mc.group(1) == ver, f"pkgClientVersion literal {mc and mc.group(1)} != {ver} (deve combaciare: handshake client/server)"
 rd = open('README.md').read()
 assert f"Current version: **{ver}**" in rd, "README current version != " + ver
 print("invarianti OK")

@@ -2,8 +2,10 @@
 
 A [MeshCentral](https://github.com/Ylianst/MeshCentral) plugin for **remote package installation** on Windows, Linux and macOS agents. Catalog-driven, with **airgap installs** (devices never touch the internet: artifacts are downloaded from the MeshCentral server itself over the LAN).
 
-Current version: **2.2.16** — requires MeshCentral **1.3.1**
+Current version: **2.2.17** — requires MeshCentral **1.3.1**
 
+> **2.2.17**: client/server version handshake — after an update+restart the browser kept running the OLD plugin client code (the page never re-fetches pluginHandler.js), producing mysterious "not a function" errors against a NEW server. pkgList now compares the server version with the version baked into the client code and forces exactly ONE page reload per target version.
+>
 > **2.2.16**: fixed "obj.pkgOsInstallWindows is not a function" — pkgOsInstallWindows was missing from obj.exports (same class as v2.2.2). New invariant I5 in tools/release.sh (tools/test-exports.js): every obj.pkg* function and every pluginHandler.pkgmanager.* reference must be exported, so a missing client function can never ship again.
 >
 > **2.2.15**: WINDOWS INSTALL — «Installa aggiornamenti» on a Windows group now works: for the checked+online machines it fetches the .msu files from the server store (pkgstore.ashx, token-authenticated), verifies SHA384 on the machine, and runs wusa /quiet /norestart (no automatic reboot — exit 3010 reports "RIAVVIO NECESSARIO", 2359302 "già installato"). Per-KB outcome lines land in the d2 results dialog. pkgMsg now scrolls into view.

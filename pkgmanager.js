@@ -1,6 +1,13 @@
 /**
  * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
  *
+ *     v2.2.17 CLIENT/SERVER VERSION HANDSHAKE: after an update+restart the
+ *     browser keeps running the OLD plugin client code (the SPA never
+ *     re-fetches pluginHandler.js) -> mysterious "not a function" errors
+ *     with a NEW server version. pkgList now compares message.pluginVersion
+ *     with pkgClientVersion() (literal baked into the serialized source)
+ *     and forces exactly ONE page reload per target version.
+ *
  *     v2.2.16 EXPORTS REGRESSION FIX: pkgOsInstallWindows was missing from
  *     obj.exports (same class of bug as v2.2.2) -> "not a function" on the
  *     browser. New invariant enforced by tools/test-exports.js: every
@@ -489,7 +496,12 @@ module.exports.pkgmanager = function (parent) {
     var childProcess = null; try { childProcess = require('child_process'); } catch (e) { }
     var vmMod = null; try { vmMod = require('vm'); } catch (e) { }
     var obj = {};
-    obj.version = '2.2.16';
+    // v2.2.17: versione CATALOGATA nel codice CLIENT — il browser puo' tenere
+    // in memoria il pluginHandler vecchio dopo un update+restart del server
+    // (la pagina non ri-scarica pluginHandler.js da sola). pkgList confronta
+    // message.pluginVersion con questa costante e forza UN solo reload.
+    obj.pkgClientVersion = function () { return '2.2.17'; };
+    obj.version = '2.2.17';
         globalThis.__pkgmanagerActiveVersion = obj.version; // v2.1.7: versione ATTIVA (il vecchio modulo in cache dopo un install resta a ZONA, il reloadplugin la aggiorna)
     obj.fs = parent.fs;
     obj.path = parent.path;
@@ -768,7 +780,7 @@ module.exports.pkgmanager = function (parent) {
     setTimeout(function () { try { obj.ensureBinaries(); } catch (e) { obj.plog('ensureBinaries errore: ' + e); } }, 15000);
 
     // ---- Client-side (stringified into the browser) ----
-    obj.exports = ['onWebUIStartupEnd', 'pkgSidebarInject', 'pkgRequestList', 'pkgList', 'pkgCompose', 'pkgTableHtml', 'pkgTargetOs', 'pkgDevToggle', 'pkgDevSelectAll', 'pkgDevOsFilter', 'pkgDevListRender', 'pkgSelectedNodes', 'pkgSidebarOpen', 'pkgSidebarRenderDevices', 'pkgSidebarRender', 'pkgPkgToggle', 'pkgPkgSelectAll', 'pkgPkgSummary', 'pkgBatchRun', 'pkgOsScan', 'pkgOsImportManifest', 'pkgOsExportDownloader', 'pkgOsExportGo', 'pkgDownloaderReady', 'pkgOsScanPoll', 'pkgOsScanParse', 'pkgOsScanRender', 'pkgOsScanExport', 'pkgOsSidebarOpen', 'pkgOsRender', 'pkgOsMachinesRender', 'pkgOsPkgsRender', 'pkgOsPkgsToggle', 'pkgOsPkgsSelAll', 'pkgOsTable', 'pkgOsKind', 'pkgOsAdminOpen', 'pkgIsOsView', 'pkgInstall', 'pkgRunOn', 'goPageStart', 'pkgMsg', 'pkgTabSetActive', 'pkgAdminOpen', 'pkgAdminRender', 'pkgCreateOpen', 'pkgCreateRender', 'pkgCreateCurOs', 'pkgCreateDefaultType', 'pkgCreateFieldSync', 'pkgCreateDraftSync', 'pkgCreateOsChange', 'pkgCreateOsHint', 'pkgCreateUpload', 'pkgCreateArtifactDel', 'pkgCreatePreset', 'pkgCreateInsert', 'pkgCreateSave', 'pkgCreateCheckId', 'pkgCreateCatalogArrived', 'pkgAdminAdd', 'pkgAdminEdit', 'pkgAdminForm', 'pkgAdminCurOs', 'pkgAdminFieldSync', 'pkgAdminDraftSync', 'pkgAdminOsChange', 'pkgAdminOsHint', 'pkgAdminSave', 'pkgAdminDelete', 'pkgAdminUpload', 'pkgAdminUploadDo', 'pkgAdminArtifactDel', 'pkgAdminStatus', 'pkgAdminRefresh', 'pkgAdminOsFilter', 'pkgBinBanner', 'pkgOsPluginOpen', 'pkgOsPluginRender', 'pkgUpdateOnline', 'pkgUpdateFile', 'pkgRestartNow', 'pkgAgentBuild', 'pkgAgentBuildRequest', 'pkgBinStatus', 'pkgBinStatusRequest', 'pkgBinRetry', 'pkgLogTail', 'pkgLogTailRequest', 'pkgUpdateUpload', 'pkgUpdateInfo', 'pkgUpdateApplied', 'pkgDenied', 'pkgD2WrapOnMessage', 'pkgD2Pending', 'pkgD2Receive', 'pkgD2PollSummary', 'pkgOsPlan', 'pkgOsPlanRender', 'pkgOsPlanSelChange', 'pkgOsSummaryRender', 'pkgOsMachCountRefresh', 'pkgOsMachToggle', 'pkgOsMachSelAll', 'pkgOsInstallWindows', 'pkgOsFetchProgress', 'pkgAutoRestartCheck', 'pkgConfigInvariantCheck', 'pkgArtifactInfo', 'pkgDownloaderBin', 'pkgOsFetchProgRender', 'pkgOsPlanRequest', 'pkgOsPlanDownload', 'pkgOsPlanInstall', 'pkgOsPlanMachToggle', 'pkgOsPlanMachSelAll', 'pkgOsStoreRequest', 'pkgOsStoreList', 'pkgOsStoreSelChange', 'pkgOsStoreDel'];
+    obj.exports = ['onWebUIStartupEnd', 'pkgSidebarInject', 'pkgRequestList', 'pkgList', 'pkgCompose', 'pkgTableHtml', 'pkgTargetOs', 'pkgDevToggle', 'pkgDevSelectAll', 'pkgDevOsFilter', 'pkgDevListRender', 'pkgSelectedNodes', 'pkgSidebarOpen', 'pkgSidebarRenderDevices', 'pkgSidebarRender', 'pkgPkgToggle', 'pkgPkgSelectAll', 'pkgPkgSummary', 'pkgBatchRun', 'pkgOsScan', 'pkgOsImportManifest', 'pkgOsExportDownloader', 'pkgOsExportGo', 'pkgDownloaderReady', 'pkgOsScanPoll', 'pkgOsScanParse', 'pkgOsScanRender', 'pkgOsScanExport', 'pkgOsSidebarOpen', 'pkgOsRender', 'pkgOsMachinesRender', 'pkgOsPkgsRender', 'pkgOsPkgsToggle', 'pkgOsPkgsSelAll', 'pkgOsTable', 'pkgOsKind', 'pkgOsAdminOpen', 'pkgIsOsView', 'pkgInstall', 'pkgRunOn', 'goPageStart', 'pkgMsg', 'pkgTabSetActive', 'pkgAdminOpen', 'pkgAdminRender', 'pkgCreateOpen', 'pkgCreateRender', 'pkgCreateCurOs', 'pkgCreateDefaultType', 'pkgCreateFieldSync', 'pkgCreateDraftSync', 'pkgCreateOsChange', 'pkgCreateOsHint', 'pkgCreateUpload', 'pkgCreateArtifactDel', 'pkgCreatePreset', 'pkgCreateInsert', 'pkgCreateSave', 'pkgCreateCheckId', 'pkgCreateCatalogArrived', 'pkgAdminAdd', 'pkgAdminEdit', 'pkgAdminForm', 'pkgAdminCurOs', 'pkgAdminFieldSync', 'pkgAdminDraftSync', 'pkgAdminOsChange', 'pkgAdminOsHint', 'pkgAdminSave', 'pkgAdminDelete', 'pkgAdminUpload', 'pkgAdminUploadDo', 'pkgAdminArtifactDel', 'pkgAdminStatus', 'pkgAdminRefresh', 'pkgAdminOsFilter', 'pkgBinBanner', 'pkgOsPluginOpen', 'pkgOsPluginRender', 'pkgUpdateOnline', 'pkgUpdateFile', 'pkgRestartNow', 'pkgAgentBuild', 'pkgAgentBuildRequest', 'pkgBinStatus', 'pkgBinStatusRequest', 'pkgBinRetry', 'pkgLogTail', 'pkgLogTailRequest', 'pkgUpdateUpload', 'pkgUpdateInfo', 'pkgUpdateApplied', 'pkgDenied', 'pkgD2WrapOnMessage', 'pkgD2Pending', 'pkgD2Receive', 'pkgD2PollSummary', 'pkgOsPlan', 'pkgOsPlanRender', 'pkgOsPlanSelChange', 'pkgOsSummaryRender', 'pkgOsMachCountRefresh', 'pkgOsMachToggle', 'pkgOsMachSelAll', 'pkgOsInstallWindows', 'pkgOsFetchProgress', 'pkgClientVersion', 'pkgAutoRestartCheck', 'pkgConfigInvariantCheck', 'pkgArtifactInfo', 'pkgDownloaderBin', 'pkgOsFetchProgRender', 'pkgOsPlanRequest', 'pkgOsPlanDownload', 'pkgOsPlanInstall', 'pkgOsPlanMachToggle', 'pkgOsPlanMachSelAll', 'pkgOsStoreRequest', 'pkgOsStoreList', 'pkgOsStoreSelChange', 'pkgOsStoreDel'];
 
     obj.onWebUIStartupEnd = function () {
         try {
@@ -2183,6 +2195,22 @@ module.exports.pkgmanager = function (parent) {
             window.pkgmanagerBinAttempts = message.binAttempts;
             window.pkgmanagerBinError = (message.binError || null);
             if (message.pluginVersion != null) { window.pkgmanagerPluginVersion = message.pluginVersion; }
+            // v2.2.17: HANDSHAKE versione client/server — dopo un update+restart
+            // il codice client in memoria puo' essere VECCHIO (la pagina non
+            // ri-carica pluginHandler.js): un solo reload per versione target.
+            try {
+                var cvf = pluginHandler.pkgmanager.pkgClientVersion;
+                if ((typeof cvf == 'function') && (message.pluginVersion != null) && (cvf() != message.pluginVersion)) {
+                    var aligned = null;
+                    try { aligned = sessionStorage.getItem('pkgmAligned'); } catch (eV1) { }
+                    if (aligned != message.pluginVersion) {
+                        try { sessionStorage.setItem('pkgmAligned', message.pluginVersion); } catch (eV2) { }
+                        console.log('pkgmanager: client ' + cvf() + ' != server ' + message.pluginVersion + ' — reload');
+                        window.location.reload();
+                        return;
+                    }
+                }
+            } catch (eV0) { }
             if (message.opAck != null) { window.pkgmanagerAdminMsg = message.opAck; }
             if (message.error != null) { window.pkgmanagerAdminMsg = message.error; pluginHandler.pkgmanager.pkgMsg(message.error); } // v1.8.0: gli errori del server (es. osfetch su server airgap) ora sono VISIBILI
             // v1.9.1 sticky view: dopo un bounce (go(0) ha salvato la vista)
