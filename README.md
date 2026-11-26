@@ -2,8 +2,10 @@
 
 A [MeshCentral](https://github.com/Ylianst/MeshCentral) plugin for **remote package installation** on Windows, Linux and macOS agents. Catalog-driven, with **airgap installs** (devices never touch the internet: artifacts are downloaded from the MeshCentral server itself over the LAN).
 
-Current version: **2.2.9** — requires MeshCentral **1.3.1**
+Current version: **2.2.10** — requires MeshCentral **1.3.1**
 
+> **2.2.10**: store check for every OS — inStore/sha384 is now computed for Windows groups too (it previously ran only for Linux, so .msu files already in the store were re-downloaded on every «Scarica selezionati»); explicit message when everything selected is already in the store. Layout: Macchine scansionate left (full height), right column = Pacchetti rilevati (310px) with Avanzamento download (240px, scrollable) beneath it.
+>
 > **2.2.9**: the whole «Aggiornamenti OS» page scrolls (viewport-height wrapper with its own scrollbar), so every section and report stays reachable; sections keep their fixed heights and internal scrolling.
 >
 > **2.2.8**: «Macchine scansionate» and «Pacchetti rilevati» are side by side again (flex row 1:1.5), as fixed-height sections; the rest of the v2.2.7 stack (Avanzamento download, Piano, Riassunto) is unchanged.

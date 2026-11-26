@@ -1,6 +1,13 @@
 /**
  * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
  *
+ *     v2.2.10 STORE CHECK FOR ALL OS + LAYOUT TWEAK: inStore/sha384 now
+ *     computed for windows groups too (the check previously skipped any
+ *     non-linux group, so .msu files were re-downloaded even when already
+ *     in the store); explicit ack when everything selected is already in
+ *     the store; layout: Macchine (left, full height) | right column =
+ *     Pacchetti (310px) + Avanzamento download (240px, scroll).
+ *
  *     v2.2.9 PAGE-LEVEL SCROLL: the plugin page itself scrolls
  *     (max-height calc(100vh - 130px), overflow-y auto) so every
  *     section/report stays reachable regardless of core container styles.
@@ -449,7 +456,7 @@ module.exports.pkgmanager = function (parent) {
     var childProcess = null; try { childProcess = require('child_process'); } catch (e) { }
     var vmMod = null; try { vmMod = require('vm'); } catch (e) { }
     var obj = {};
-    obj.version = '2.2.9';
+    obj.version = '2.2.10';
         globalThis.__pkgmanagerActiveVersion = obj.version; // v2.1.7: versione ATTIVA (il vecchio modulo in cache dopo un install resta a ZONA, il reloadplugin la aggiorna)
     obj.fs = parent.fs;
     obj.path = parent.path;
@@ -2367,10 +2374,14 @@ module.exports.pkgmanager = function (parent) {
             var secHead = function (t, span) { return '<div style="background:#e8e8e8;border-bottom:1px solid #ddd;border-radius:6px 6px 0 0;padding:6px 10px;font-weight:bold">' + t + ((span != null) ? ' <span id="' + span + '" style="color:#888;font-weight:normal;font-size:12px"></span>' : '') + '</div>'; };
             // v2.2.8: Macchine e Pacchetti AFFIANCATI (due colonne flex), come nel layout a due riquadri
             x += '<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:stretch;margin-bottom:10px">';
-            x += '<div style="flex:1;min-width:280px;border:1px solid #ddd;border-radius:6px">' + secHead('Macchine scansionate', 'pkgmanagerOsMachinesSummary') + '<div id="pkgmanagerOsMachines" style="font-size:12px;height:' + secH + 'px;overflow:auto"></div></div>';
-            x += '<div style="flex:1.5;min-width:340px;border:1px solid #ddd;border-radius:6px">' + secHead('Pacchetti rilevati', 'pkgmanagerOsPkgsSummary') + '<div id="pkgmanagerOsPkgs" style="font-size:12px;height:' + secH + 'px;overflow:auto"></div><div id="pkgmanagerOsPkgsActions" style="padding:6px 10px"></div></div>';
+            // v2.2.10: colonna SINISTRA Macchine (tutta altezza), colonna
+            // DESTRA = Pacchetti rilevati (310px) + Avanzamento download
+            // (240px, scroll) — il resto delle sezioni sale su.
+            x += '<div style="flex:1;min-width:280px;border:1px solid #ddd;border-radius:6px">' + secHead('Macchine scansionate', 'pkgmanagerOsMachinesSummary') + '<div id="pkgmanagerOsMachines" style="font-size:12px;height:' + (secH + 170) + 'px;overflow:auto"></div></div>';
+            x += '<div style="flex:1.5;min-width:340px;display:flex;flex-direction:column;gap:10px">';
+            x += '<div style="border:1px solid #ddd;border-radius:6px">' + secHead('Pacchetti rilevati', 'pkgmanagerOsPkgsSummary') + '<div id="pkgmanagerOsPkgs" style="font-size:12px;height:310px;overflow:auto"></div><div id="pkgmanagerOsPkgsActions" style="padding:6px 10px"></div></div>';
+            x += '<div style="border:1px solid #ddd;border-radius:6px">' + secHead('Avanzamento download') + '<div id="pkgmanagerOsFetchProg" style="font-size:12px;height:240px;overflow:auto"></div></div>';
             x += '</div>';
-            x += '<div style="border:1px solid #ddd;border-radius:6px;margin-bottom:10px">' + secHead('Avanzamento download') + '<div id="pkgmanagerOsFetchProg" style="font-size:12px;height:' + Math.round(secH / 2) + 'px;overflow:auto"></div></div>';
             x += '<div style="border:1px solid #ddd;border-radius:6px;margin-bottom:10px">' + secHead('Piano aggiornamenti') + '<div id="pkgmanagerPlanWrap" style="padding:6px 10px;max-height:420px;overflow:auto"></div></div>';
             x += '<div style="border:1px solid #ddd;border-radius:6px;margin-bottom:10px">' + secHead('Riassunto mancanti') + '<div id="pkgmanagerOsSummary" style="font-size:12px;height:220px;overflow:auto"></div></div>';
             x += '<div id="pkgmanagerMsg" style="margin-top:10px;color:#888"></div>';
@@ -3644,17 +3655,19 @@ module.exports.pkgmanager = function (parent) {
         for (var gi = 0; gi < gkeys.length; gi++) {
             var grp = groupsBy[gkeys[gi]];
             if (grp.os == 'windows') { grp.storeDirName = 'os-updates-windows' + ((grp.displayVer != null) && (grp.displayVer != '') ? ('-' + grp.displayVer.toLowerCase()) : ''); }
-            if (grp.os != 'linux') { continue; }
-            grp.storeDirName = 'os-updates-' + grp.codename;
+            if (grp.storeDirName == null) { continue; } // v2.2.10: solo gruppi con store (linux+windows); macOS resta best effort
+            if (grp.os == 'linux') { grp.storeDirName = 'os-updates-' + grp.codename; }
             var sdir = parent.path.join(obj.storePath, grp.storeDirName);
             grp.machNames = []; for (var mk in grp.machines) { grp.machNames.push(grp.machines[mk]); }
             for (var ui = 0; ui < grp.updates.length; ui++) {
                 var u2 = grp.updates[ui];
                 var full2 = parent.path.join(sdir, u2.file);
                 u2.inStore = false; u2.sha384 = null;
+                // v2.2.10: controllo store per TUTTI gli OS: niente re-download
+                // di file gia' presenti (prima il check girava solo per linux)
                 try { if (parent.fs.statSync(full2).isFile()) { u2.inStore = true; u2.sha384 = crypto.createHash('sha384').update(parent.fs.readFileSync(full2)).digest('hex'); } } catch (e) { }
             }
-            grp.updates.sort(function (a, b) { return (a.package < b.package ? -1 : (a.package > b.package ? 1 : 0)); });
+            if (grp.os == 'linux') { grp.updates.sort(function (a, b) { return (a.package < b.package ? -1 : (a.package > b.package ? 1 : 0)); }); }
         }
         return { groups: groupsBy, groupKeys: gkeys, skipped: fskipped };
     };
@@ -4311,7 +4324,8 @@ log('prossimo passo: copia ' + OUT_DIR + '/ nello store del server (My Files -> 
                     }
                     sendProg(null, 'end', 0, null);
                     obj.plog('osfetch -> ' + dlok + ' scaricati, ' + fskipped.length + ' saltati');
-                    try { session.send({ action: 'plugin', plugin: 'pkgmanager', method: 'pkgOsPlan', plan: plan, opAck: 'Scaricati ' + dlok + ' nuovi file nello store; ' + fskipped.length + ' saltati (dettaglio qui sotto).' + ((fsel != null) ? ' Selezione: ' + Object.keys(fsel).length + ' pacchetti.' : '') }); } catch (e) { }
+                    var opMsg = ((ftot == 0) ? 'Tutti i pacchetti selezionati sono già nello store: nessun download necessario.' : ('Scaricati ' + dlok + ' nuovi file nello store; ' + fskipped.length + ' saltati (dettaglio qui sotto).' + ((fsel != null) ? ' Selezione: ' + Object.keys(fsel).length + ' pacchetti.' : '')));
+                    try { session.send({ action: 'plugin', plugin: 'pkgmanager', method: 'pkgOsPlan', plan: plan, opAck: opMsg }); } catch (e) { }
                 } catch (err) {
                     obj.plog('osfetch error: ' + err);
                     try { obj.replyCatalog(session, null, 'Download aggiornamenti fallito: ' + err + ' — se il server e airgap usa «Esporta downloader…» nella vista Aggiornamenti OS.'); } catch (e3) { }
