@@ -1,6 +1,10 @@
 /**
  * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
  *
+ *     v2.1.12 UPDATE-CHECK CACHE-BUSTER: raw POPs served divergent copies
+ *     (check could read a stale js and answer "already updated" for
+ *     minutes). pluginupdate-check now fetches a unique query-string URL.
+ *
  *     v2.1.11 ENSURE-BINARIES FIX: the downloader-binary bootstrap used the
  *     external `unzip` command (missing on minimal containers -> silent
  *     permanent failure) and never retried extraction errors. Now:
@@ -391,7 +395,7 @@ module.exports.pkgmanager = function (parent) {
     var childProcess = null; try { childProcess = require('child_process'); } catch (e) { }
     var vmMod = null; try { vmMod = require('vm'); } catch (e) { }
     var obj = {};
-    obj.version = '2.1.11';
+    obj.version = '2.1.12';
         globalThis.__pkgmanagerActiveVersion = obj.version; // v2.1.7: versione ATTIVA (il vecchio modulo in cache dopo un install resta a ZONA, il reloadplugin la aggiorna)
     obj.fs = parent.fs;
     obj.path = parent.path;
@@ -3714,7 +3718,11 @@ log('prossimo passo: copia ' + OUT_DIR + '/ nello store del server (My Files -> 
         if (command.pluginaction == 'pluginupdate-check') {
             if (!isAdmin) { console.log('pkgmanager[server]: denied pluginupdate-check for user ' + command.userid); deny(); return; }
             (function () {
-                var f = null; try { f = fetch(obj.updateSrcUrl); } catch (e) { }
+                // v2.1.12: cache-buster — raw/Fastly e' afflitto da POP disallineati
+                // (il check poteva leggere una versione vecchia e rispondere
+                // "gia aggiornato" per minuti): query string diversa = cache key diversa.
+                var _srcUrl = obj.updateSrcUrl + ((obj.updateSrcUrl.indexOf('?') >= 0) ? '&' : '?') + 'nocache=' + Date.now();
+                var f = null; try { f = fetch(_srcUrl); } catch (e) { }
                 if (f == null) { obj.replyCatalog(session, null, 'Aggiornamento plugin: fetch non disponibile su questo Node.'); return; }
                 f.then(function (r) { return r.text(); }).then(function (code) {
                     var v = obj.pluginVersionFromCode(code);
