@@ -43,6 +43,9 @@ EOF
 echo "== I3: node --check =="
 node --check pkgmanager.js
 
+echo "== I5: exports invariant (every obj.pkg* must be in exports) =="
+node tools/test-exports.js
+
 echo "== build zips =="
 python3 - <<EOF
 import zipfile, shutil, os, json
