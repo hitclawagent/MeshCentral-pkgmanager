@@ -1,6 +1,14 @@
 /**
  * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
  *
+ *     v2.2.20 WINDOWS DOWNLOADER FIX: Invoke-WebRequest (.NET
+ *     HttpWebRequest) fails against the modern Node TLS stack with
+ *     "Connessione sottostante chiusa ... operazione di invio" — the
+ *     per-KB download now uses curl.exe (native since Win10 1809),
+ *     falls back to BITS, then throws with the precise tool+exit code
+ *     (curl(35)=TLS, curl(7)=connect ...) so failures are diagnosable
+ *     from the progress section.
+ *
  *     v2.2.19 INSTALL PROGRESS SECTION: the bottom section becomes
  *     "Avanzamento aggiornamenti" — per-machine state (waiting/running/
  *     done) fed by pkgD2Receive, per-KB outcome lines for Windows
@@ -511,8 +519,8 @@ module.exports.pkgmanager = function (parent) {
     // in memoria il pluginHandler vecchio dopo un update+restart del server
     // (la pagina non ri-scarica pluginHandler.js da sola). pkgList confronta
     // message.pluginVersion con questa costante e forza UN solo reload.
-    obj.pkgClientVersion = function () { return '2.2.19'; };
-    obj.version = '2.2.19';
+    obj.pkgClientVersion = function () { return '2.2.20'; };
+    obj.version = '2.2.20';
         globalThis.__pkgmanagerActiveVersion = obj.version; // v2.1.7: versione ATTIVA (il vecchio modulo in cache dopo un install resta a ZONA, il reloadplugin la aggiorna)
     obj.fs = parent.fs;
     obj.path = parent.path;
@@ -2923,7 +2931,10 @@ module.exports.pkgmanager = function (parent) {
                 "foreach($f in $files){",
                 " $o=Join-Path $env:TEMP $f.n",
                 " try{",
-                "  Invoke-WebRequest -Uri ($base+[uri]::EscapeDataString($f.n)) -OutFile $o -UseBasicParsing",
+                "  $u=$base+[uri]::EscapeDataString($f.n); $dl=$false; $errD=''",
+"  & curl.exe -ksS -f -o $o $u 2>$null; if($LASTEXITCODE -eq 0){$dl=$true}else{$errD=('curl('+$LASTEXITCODE+')')}",
+"  if(-not $dl){ Remove-Item $o -ErrorAction SilentlyContinue; Import-Module BitsTransfer -ErrorAction SilentlyContinue; Start-BitsTransfer -Source $u -Destination $o -ErrorAction Stop; $dl=(Test-Path $o) }",
+"  if(-not $dl){ throw ('download fallito: '+$errD+'/bits') }",
                 "  $h=(Get-FileHash $o -Algorithm SHA384).Hash.ToLower()",
                 "  if($h -ne $f.s){Write-Output ($f.n+': ERR sha384 non corrisponde');continue}",
                 "  $p=Start-Process wusa.exe -ArgumentList ('\"'+$o+'\" /quiet /norestart') -Wait -PassThru",

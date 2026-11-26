@@ -2,8 +2,10 @@
 
 A [MeshCentral](https://github.com/Ylianst/MeshCentral) plugin for **remote package installation** on Windows, Linux and macOS agents. Catalog-driven, with **airgap installs** (devices never touch the internet: artifacts are downloaded from the MeshCentral server itself over the LAN).
 
-Current version: **2.2.19** — requires MeshCentral **1.3.1**
+Current version: **2.2.20** — requires MeshCentral **1.3.1**
 
+> **2.2.20**: Windows per-KB download fixed — Invoke-WebRequest (.NET HttpWebRequest) dies with "Connessione sottostante chiusa / operazione di invio" against the modern Node TLS stack; the download now uses native curl.exe first, BITS as fallback, and on failure reports the exact tool + exit code (curl(35)=TLS, curl(7)=connect, curl(28)=timeout...) in the progress section.
+>
 > **2.2.19**: the bottom section becomes «Avanzamento aggiornamenti» — per-machine install state (in attesa / in corso / completata) fed live from runcommands output, per-KB outcome lines for Windows (✓ OK, ↻ RIAVVIO NECESSARIO, = già installato, ✗ ERR), global progress bar; both Windows (PowerShell) and Linux (shell) install commands emit a __pkgmInstallDone end marker per machine. With no active install the section falls back to the missing-packages summary.
 >
 > **2.2.18**: the Windows install flow is inlined inside pkgOsPlanInstall — no cross-function calls, so a version-skewed browser (old plugin client code in memory after an update) can no longer fail with "not a function". The pkgClientVersion handshake (2.2.17) now covers auto-reload for all future updates.
