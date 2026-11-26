@@ -1,6 +1,13 @@
 /**
  * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
  *
+ *     v2.2.19 INSTALL PROGRESS SECTION: the bottom section becomes
+ *     "Avanzamento aggiornamenti" — per-machine state (waiting/running/
+ *     done) fed by pkgD2Receive, per-KB outcome lines for Windows
+ *     (OK/RIAVVIO/gia installato/ERR), global progress bar; commands end
+ *     with a __pkgmInstallDone marker. No active run -> falls back to
+ *     the missing-packages summary.
+ *
  *     v2.2.18 SELF-CONTAINED INSTALL: the Windows install flow is inlined
  *     inside pkgOsPlanInstall (no cross-function call) — a version-skewed
  *     browser can no longer hit "pkgOsInstallWindows is not a function".
@@ -504,8 +511,8 @@ module.exports.pkgmanager = function (parent) {
     // in memoria il pluginHandler vecchio dopo un update+restart del server
     // (la pagina non ri-scarica pluginHandler.js da sola). pkgList confronta
     // message.pluginVersion con questa costante e forza UN solo reload.
-    obj.pkgClientVersion = function () { return '2.2.18'; };
-    obj.version = '2.2.18';
+    obj.pkgClientVersion = function () { return '2.2.19'; };
+    obj.version = '2.2.19';
         globalThis.__pkgmanagerActiveVersion = obj.version; // v2.1.7: versione ATTIVA (il vecchio modulo in cache dopo un install resta a ZONA, il reloadplugin la aggiorna)
     obj.fs = parent.fs;
     obj.path = parent.path;
@@ -784,7 +791,7 @@ module.exports.pkgmanager = function (parent) {
     setTimeout(function () { try { obj.ensureBinaries(); } catch (e) { obj.plog('ensureBinaries errore: ' + e); } }, 15000);
 
     // ---- Client-side (stringified into the browser) ----
-    obj.exports = ['onWebUIStartupEnd', 'pkgSidebarInject', 'pkgRequestList', 'pkgList', 'pkgCompose', 'pkgTableHtml', 'pkgTargetOs', 'pkgDevToggle', 'pkgDevSelectAll', 'pkgDevOsFilter', 'pkgDevListRender', 'pkgSelectedNodes', 'pkgSidebarOpen', 'pkgSidebarRenderDevices', 'pkgSidebarRender', 'pkgPkgToggle', 'pkgPkgSelectAll', 'pkgPkgSummary', 'pkgBatchRun', 'pkgOsScan', 'pkgOsImportManifest', 'pkgOsExportDownloader', 'pkgOsExportGo', 'pkgDownloaderReady', 'pkgOsScanPoll', 'pkgOsScanParse', 'pkgOsScanRender', 'pkgOsScanExport', 'pkgOsSidebarOpen', 'pkgOsRender', 'pkgOsMachinesRender', 'pkgOsPkgsRender', 'pkgOsPkgsToggle', 'pkgOsPkgsSelAll', 'pkgOsTable', 'pkgOsKind', 'pkgOsAdminOpen', 'pkgIsOsView', 'pkgInstall', 'pkgRunOn', 'goPageStart', 'pkgMsg', 'pkgTabSetActive', 'pkgAdminOpen', 'pkgAdminRender', 'pkgCreateOpen', 'pkgCreateRender', 'pkgCreateCurOs', 'pkgCreateDefaultType', 'pkgCreateFieldSync', 'pkgCreateDraftSync', 'pkgCreateOsChange', 'pkgCreateOsHint', 'pkgCreateUpload', 'pkgCreateArtifactDel', 'pkgCreatePreset', 'pkgCreateInsert', 'pkgCreateSave', 'pkgCreateCheckId', 'pkgCreateCatalogArrived', 'pkgAdminAdd', 'pkgAdminEdit', 'pkgAdminForm', 'pkgAdminCurOs', 'pkgAdminFieldSync', 'pkgAdminDraftSync', 'pkgAdminOsChange', 'pkgAdminOsHint', 'pkgAdminSave', 'pkgAdminDelete', 'pkgAdminUpload', 'pkgAdminUploadDo', 'pkgAdminArtifactDel', 'pkgAdminStatus', 'pkgAdminRefresh', 'pkgAdminOsFilter', 'pkgBinBanner', 'pkgOsPluginOpen', 'pkgOsPluginRender', 'pkgUpdateOnline', 'pkgUpdateFile', 'pkgRestartNow', 'pkgAgentBuild', 'pkgAgentBuildRequest', 'pkgBinStatus', 'pkgBinStatusRequest', 'pkgBinRetry', 'pkgLogTail', 'pkgLogTailRequest', 'pkgUpdateUpload', 'pkgUpdateInfo', 'pkgUpdateApplied', 'pkgDenied', 'pkgD2WrapOnMessage', 'pkgD2Pending', 'pkgD2Receive', 'pkgD2PollSummary', 'pkgOsPlan', 'pkgOsPlanRender', 'pkgOsPlanSelChange', 'pkgOsSummaryRender', 'pkgOsMachCountRefresh', 'pkgOsMachToggle', 'pkgOsMachSelAll', 'pkgOsFetchProgress', 'pkgClientVersion', 'pkgAutoRestartCheck', 'pkgConfigInvariantCheck', 'pkgArtifactInfo', 'pkgDownloaderBin', 'pkgOsFetchProgRender', 'pkgOsPlanRequest', 'pkgOsPlanDownload', 'pkgOsPlanInstall', 'pkgOsPlanMachToggle', 'pkgOsPlanMachSelAll', 'pkgOsStoreRequest', 'pkgOsStoreList', 'pkgOsStoreSelChange', 'pkgOsStoreDel'];
+    obj.exports = ['onWebUIStartupEnd', 'pkgSidebarInject', 'pkgRequestList', 'pkgList', 'pkgCompose', 'pkgTableHtml', 'pkgTargetOs', 'pkgDevToggle', 'pkgDevSelectAll', 'pkgDevOsFilter', 'pkgDevListRender', 'pkgSelectedNodes', 'pkgSidebarOpen', 'pkgSidebarRenderDevices', 'pkgSidebarRender', 'pkgPkgToggle', 'pkgPkgSelectAll', 'pkgPkgSummary', 'pkgBatchRun', 'pkgOsScan', 'pkgOsImportManifest', 'pkgOsExportDownloader', 'pkgOsExportGo', 'pkgDownloaderReady', 'pkgOsScanPoll', 'pkgOsScanParse', 'pkgOsScanRender', 'pkgOsScanExport', 'pkgOsSidebarOpen', 'pkgOsRender', 'pkgOsMachinesRender', 'pkgOsPkgsRender', 'pkgOsPkgsToggle', 'pkgOsPkgsSelAll', 'pkgOsTable', 'pkgOsKind', 'pkgOsAdminOpen', 'pkgIsOsView', 'pkgInstall', 'pkgRunOn', 'goPageStart', 'pkgMsg', 'pkgTabSetActive', 'pkgAdminOpen', 'pkgAdminRender', 'pkgCreateOpen', 'pkgCreateRender', 'pkgCreateCurOs', 'pkgCreateDefaultType', 'pkgCreateFieldSync', 'pkgCreateDraftSync', 'pkgCreateOsChange', 'pkgCreateOsHint', 'pkgCreateUpload', 'pkgCreateArtifactDel', 'pkgCreatePreset', 'pkgCreateInsert', 'pkgCreateSave', 'pkgCreateCheckId', 'pkgCreateCatalogArrived', 'pkgAdminAdd', 'pkgAdminEdit', 'pkgAdminForm', 'pkgAdminCurOs', 'pkgAdminFieldSync', 'pkgAdminDraftSync', 'pkgAdminOsChange', 'pkgAdminOsHint', 'pkgAdminSave', 'pkgAdminDelete', 'pkgAdminUpload', 'pkgAdminUploadDo', 'pkgAdminArtifactDel', 'pkgAdminStatus', 'pkgAdminRefresh', 'pkgAdminOsFilter', 'pkgBinBanner', 'pkgOsPluginOpen', 'pkgOsPluginRender', 'pkgUpdateOnline', 'pkgUpdateFile', 'pkgRestartNow', 'pkgAgentBuild', 'pkgAgentBuildRequest', 'pkgBinStatus', 'pkgBinStatusRequest', 'pkgBinRetry', 'pkgLogTail', 'pkgLogTailRequest', 'pkgUpdateUpload', 'pkgUpdateInfo', 'pkgUpdateApplied', 'pkgDenied', 'pkgD2WrapOnMessage', 'pkgD2Pending', 'pkgD2Receive', 'pkgD2PollSummary', 'pkgOsPlan', 'pkgOsPlanRender', 'pkgOsPlanSelChange', 'pkgOsSummaryRender', 'pkgOsMachCountRefresh', 'pkgOsMachToggle', 'pkgOsMachSelAll', 'pkgOsFetchProgress', 'pkgClientVersion', 'pkgInstallRunBegin', 'pkgInstallProgressRender', 'pkgAutoRestartCheck', 'pkgConfigInvariantCheck', 'pkgArtifactInfo', 'pkgDownloaderBin', 'pkgOsFetchProgRender', 'pkgOsPlanRequest', 'pkgOsPlanDownload', 'pkgOsPlanInstall', 'pkgOsPlanMachToggle', 'pkgOsPlanMachSelAll', 'pkgOsStoreRequest', 'pkgOsStoreList', 'pkgOsStoreSelChange', 'pkgOsStoreDel'];
 
     obj.onWebUIStartupEnd = function () {
         try {
@@ -835,7 +842,24 @@ module.exports.pkgmanager = function (parent) {
     // I chunk consecutivi dello stesso nodo vengono CONCATENATI.
     obj.pkgD2Receive = function (message) {
         try {
-            if ((message == null) || (message.responseid == null) || (window.pkgmanagerD2 == null)) { return; }
+            if (message == null) { return; }
+            // v2.2.19: feed dell'avanzamento installazione (indipendente dal
+            // pending d2: deve funzionare anche se il registro d2 e' vuoto)
+            try {
+                var ir = window.pkgmanagerInstallRun;
+                if ((ir != null) && (message.responseid != null) && (message.responseid == ir.rid)) {
+                    var nidIR = message.nodeid;
+                    if ((nidIR == null) && (window.pkgmanagerD2 != null) && (window.pkgmanagerD2[message.responseid] != null)) { var p0 = window.pkgmanagerD2[message.responseid]; for (var i0 in p0.nodes) { if (p0.results[p0.nodes[i0]] == null) { nidIR = p0.nodes[i0]; break; } } }
+                    if ((nidIR != null) && (ir.machs[nidIR] != null)) {
+                        var txt0 = String((message.result == null) ? '' : message.result);
+                        ir.machs[nidIR].lines.push(txt0);
+                        if (ir.machs[nidIR].lines.join('\n').indexOf('__pkgmInstallDone') >= 0) { ir.machs[nidIR].done = true; }
+                        pluginHandler.pkgmanager.pkgInstallProgressRender();
+                    }
+                }
+            } catch (eIR) { }
+            if (message.responseid == null) { return; }
+            if (window.pkgmanagerD2 == null) { return; }
             var p = window.pkgmanagerD2[message.responseid];
             if (p == null) { return; }
             var nid = message.nodeid;
@@ -843,6 +867,7 @@ module.exports.pkgmanager = function (parent) {
             if (nid == null) { return; }
             var txt = String((message.result == null) ? '' : message.result);
             p.results[nid] = ((p.results[nid] == null) ? '' : (String(p.results[nid]) + '\n')) + txt;
+
         } catch (e) { }
     };
 
@@ -1550,7 +1575,7 @@ module.exports.pkgmanager = function (parent) {
                     else { insts.push('sh /tmp/' + a); manualUn = true; }
                 }
             }
-            var cmd = parts.join(' && ');
+            var cmd = parts.join(' && ') + ' ; echo __pkgmInstallDone'; // v2.2.19: marker fine per macchina
             if (insts.length > 0) { cmd += ' && ' + insts.join(' && '); }
             var un = uns.join(((os == 'windows') ? ' & ' : ' ; '));
             var unNote = ((manualUn) ? ' — disinstallazione non automatizzabile per alcuni file di questo elenco, completala a mano (è obbligatoria)' : '');
@@ -2451,14 +2476,14 @@ module.exports.pkgmanager = function (parent) {
             x += '<div style="border:1px solid #ddd;border-radius:6px;display:flex;flex-direction:column;flex:1">' + secHead('Avanzamento download') + '<div id="pkgmanagerOsFetchProg" style="font-size:12px;flex:1;overflow:auto"></div></div>';
             x += '</div>';
             x += '</div>'; // v2.2.13: CHIUSURA della riga flex (mancava: Riassunto diventava un figlio della riga e finiva a sinistra)
-            x += '<div style="border:1px solid #ddd;border-radius:6px;margin-bottom:10px">' + secHead('Riassunto mancanti') + '<div id="pkgmanagerOsSummary" style="font-size:12px;height:280px;overflow:auto"></div></div>';
+            x += '<div style="border:1px solid #ddd;border-radius:6px;margin-bottom:10px">' + secHead('Avanzamento aggiornamenti') + '<div id="pkgmanagerOsSummary" style="font-size:12px;height:280px;overflow:auto"></div></div>';
             x += '<div id="pkgmanagerMsg" style="margin-top:10px;color:#888"></div>';
             m.innerHTML = x;
             pluginHandler.pkgmanager.pkgOsPlanRender();
             pluginHandler.pkgmanager.pkgOsScanRender();
             pluginHandler.pkgmanager.pkgOsMachinesRender();
             pluginHandler.pkgmanager.pkgOsPkgsRender();
-            pluginHandler.pkgmanager.pkgOsSummaryRender();
+            pluginHandler.pkgmanager.pkgInstallProgressRender(); // v2.2.19: il riassunto e' il fallback della sezione
             pluginHandler.pkgmanager.pkgOsFetchProgRender();
         } catch (e) { console.log('pkgmanager os render failed: ' + e); }
     };
@@ -2496,6 +2521,62 @@ module.exports.pkgmanager = function (parent) {
             }
             el.innerHTML = x;
         } catch (e) { console.log('pkgmanager osfetch prog render failed: ' + e); }
+    };
+
+    // v2.2.19: AVANZAMENTO AGGIORNAMENTI — stato per-macchina dell'ultima
+    // installazione (windows: esito per KB; linux: stato + output). Il
+    // comando stampa '__pkgmInstallDone' come marker di fine per macchina.
+    obj.pkgInstallRunBegin = function (rid, kind, machines, names) {
+        try {
+            var machs = {};
+            for (var i = 0; i < machines.length; i++) { var nid = machines[i]; machs[nid] = { name: (names[nid] || nid), lines: [], done: false }; }
+            window.pkgmanagerInstallRun = { rid: rid, started: Date.now(), kind: kind, machs: machs };
+            pluginHandler.pkgmanager.pkgInstallProgressRender();
+        } catch (e) { }
+    };
+
+    obj.pkgInstallProgressRender = function () {
+        try {
+            var el = document.getElementById('pkgmanagerOsSummary');
+            if (el == null) return;
+            var run = window.pkgmanagerInstallRun;
+            if (run == null) { pluginHandler.pkgmanager.pkgOsSummaryRender(); return; } // nessuna installazione: riassunto mancanti
+            var nids = Object.keys(run.machs);
+            var done = 0;
+            for (var i = 0; i < nids.length; i++) { if (run.machs[nids[i]].done) { done++; } }
+            var pct = (nids.length > 0) ? Math.round((done / nids.length) * 100) : 0;
+            var elapsed = Math.round((Date.now() - run.started) / 1000);
+            var x = '<div style="margin-bottom:6px">Installazione ' + EscapeHtml(run.kind) + ' avviata alle ' + new Date(run.started).toLocaleTimeString() + ' — <b>' + done + '/' + nids.length + '</b> macchine completate (' + pct + '%)' + ((done < nids.length) ? ' — in corso (' + elapsed + 's)' : ' — terminata') + '</div>';
+            x += '<div style="height:10px;background:#ddd;border-radius:5px;margin-bottom:8px"><div style="height:10px;background:#080;border-radius:5px;width:' + pct + '%"></div></div>';
+            for (var j = 0; j < nids.length; j++) {
+                var nid = nids[j], mm = run.machs[nid];
+                var chunk = mm.lines.join('\n');
+                var stato;
+                if (mm.done) { stato = '<span style="color:#080">completata</span>'; }
+                else if (chunk != '') { stato = '<span style="color:#a60">in corso…</span>'; }
+                else { stato = '<span style="color:#888">in attesa di risposta…</span>'; }
+                x += '<div style="padding:3px 0;border-bottom:1px solid #f2f2f2"><b>' + EscapeHtml(mm.name) + '</b> — ' + stato;
+                if (chunk != '') {
+                    var kbLines = [];
+                    var ls = chunk.split(/\r?\n/);
+                    for (var k = 0; k < ls.length; k++) {
+                        var t = ls[k].trim();
+                        if (/\.(msu|deb):/i.test(t)) {
+                            var icon = '•';
+                            if (t.indexOf('RIAVVIO') >= 0) { icon = '<span style="color:#a60">↻ RIAVVIO</span>'; }
+                            else if (t.indexOf('ERR') >= 0) { icon = '<span style="color:#d00">✗</span>'; }
+                            else if (t.indexOf('gia installato') >= 0) { icon = '<span style="color:#888">=</span>'; }
+                            else if (t.indexOf(': OK') >= 0) { icon = '<span style="color:#080">✓</span>'; }
+                            kbLines.push(icon + ' ' + EscapeHtml(t));
+                        }
+                    }
+                    if (kbLines.length > 0) { x += '<div style="font-size:11px;margin-top:2px">' + kbLines.join('<br>') + '</div>'; }
+                }
+                x += '</div>';
+            }
+            el.innerHTML = x;
+            if (done < nids.length) { if (run.pollTimer == null) { run.pollTimer = setTimeout(function pkgInstallTick() { try { var r2 = window.pkgmanagerInstallRun; if (r2 == null) { return; } r2.pollTimer = null; pluginHandler.pkgmanager.pkgInstallProgressRender(); } catch (e2) { } }, 2000); } }
+        } catch (e) { console.log('pkgmanager install progress render failed: ' + e); }
     };
 
     // v2.2.6: BARRA RIASSUNTO in fondo alla vista — una riga per gruppo
@@ -2852,10 +2933,12 @@ module.exports.pkgmanager = function (parent) {
                 "  elseif($c -eq 2359302){Write-Output ($f.n+': gia installato')}",
                 "  else{Write-Output ($f.n+': ERR wusa '+$c)}",
                 " }catch{Write-Output ($f.n+': ERR '+$_.Exception.Message)}",
-                "}"
+                "}",
+                "Write-Output '__pkgmInstallDone'"
             ].join('; ');
             var hasD2Dialog = (typeof d2runBegin == 'function');
             var responseid = hasD2Dialog ? d2runBegin(picked) : pluginHandler.pkgmanager.pkgD2Pending(picked);
+            pluginHandler.pkgmanager.pkgInstallRunBegin(responseid, 'Windows', picked, grp.machines);
             meshserver.send({ action: 'runcommands', nodeids: picked, type: 2, cmds: ps, runAsUser: 0, reply: true, responseid: responseid, timeout: 1800 });
             pluginHandler.pkgmanager.pkgMsg('Installazione Windows avviata su ' + picked.length + ' macchina/e (' + have.length + ' .msu, /norestart — il riavvio resta manuale)' + ((skippedOff.length > 0) ? (' — offline saltate: ' + skippedOff.join(', ')) : '') + (hasD2Dialog ? ' — output nel dialogo dei risultati.' : ' — riepilogo qui a fine esecuzione.'));
             if (!hasD2Dialog) { pluginHandler.pkgmanager.pkgD2PollSummary(responseid, Date.now(), 'Installazione Windows completata', 2040000); }
@@ -2874,7 +2957,7 @@ module.exports.pkgmanager = function (parent) {
             }
             var debs = have.map(function (u2) { return '/tmp/' + u2.file; });
             parts.push('sudo -n dpkg -i ' + debs.join(' '));
-            var cmd = parts.join(' && ');
+            var cmd = parts.join(' && ') + ' ; echo __pkgmInstallDone'; // v2.2.19: marker fine per macchina
             // v2.0.9: solo le macchine SCELTE (checkbox per gruppo) e online;
             // offline vengono segnalate ma escluse (il server rifiuterebbe).
             var picked = [], skippedOff = [], notSel = [];
@@ -2895,6 +2978,7 @@ module.exports.pkgmanager = function (parent) {
             }
             var hasD2Dialog = (typeof d2runBegin == 'function');
             var responseid = hasD2Dialog ? d2runBegin(online) : pluginHandler.pkgmanager.pkgD2Pending(online);
+            pluginHandler.pkgmanager.pkgInstallRunBegin(responseid, 'Linux', online, grp.machines);
             meshserver.send({ action: 'runcommands', nodeids: online, type: 3, cmds: cmd, runAsUser: 0, reply: true, responseid: responseid, timeout: 1800 });
             pluginHandler.pkgmanager.pkgMsg('Installazione aggiornamenti (' + grp.distro + ' ' + grp.ver + ') avviata su ' + online.length + ' macchina/e — ' + have.length + ' pacchetti' + ((missCnt > 0) ? (' (' + missCnt + ' NON nello store: scaricali prima)') : '') + ((skippedOff.length > 0) ? (' — offline saltate: ' + skippedOff.join(', ')) : '') + (hasD2Dialog ? ' — output nel dialogo dei risultati.' : ' — riepilogo qui a fine esecuzione.'));
             if (!hasD2Dialog) { pluginHandler.pkgmanager.pkgD2PollSummary(responseid, Date.now(), 'Installazione aggiornamenti completata', 2040000); }
