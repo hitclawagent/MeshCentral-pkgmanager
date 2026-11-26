@@ -1,6 +1,11 @@
 /**
  * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
  *
+ *     v2.2.2 EXPORTS FIX: every client function a view calls MUST be in
+ *     obj.exports or MeshCentral never serializes it to the browser
+ *     (pkgOsMachinesRender, PkgsRender, PkgsToggle, PkgsSelAll were missing - empty
+ *     panes on any browser).
+ *
  *     v2.2.1 OS TWO-PANE VIEW: machines pane (left) vs detected packages
  *     pane (right, unique per release + dedup across machines) with
  *     checkboxes and "Scarica selezionati" (osfetch packages filter);
@@ -407,7 +412,7 @@ module.exports.pkgmanager = function (parent) {
     var childProcess = null; try { childProcess = require('child_process'); } catch (e) { }
     var vmMod = null; try { vmMod = require('vm'); } catch (e) { }
     var obj = {};
-    obj.version = '2.2.1';
+    obj.version = '2.2.2';
         globalThis.__pkgmanagerActiveVersion = obj.version; // v2.1.7: versione ATTIVA (il vecchio modulo in cache dopo un install resta a ZONA, il reloadplugin la aggiorna)
     obj.fs = parent.fs;
     obj.path = parent.path;
@@ -686,7 +691,7 @@ module.exports.pkgmanager = function (parent) {
     setTimeout(function () { try { obj.ensureBinaries(); } catch (e) { obj.plog('ensureBinaries errore: ' + e); } }, 15000);
 
     // ---- Client-side (stringified into the browser) ----
-    obj.exports = ['onWebUIStartupEnd', 'pkgSidebarInject', 'pkgRequestList', 'pkgList', 'pkgCompose', 'pkgTableHtml', 'pkgTargetOs', 'pkgDevToggle', 'pkgDevSelectAll', 'pkgDevOsFilter', 'pkgDevListRender', 'pkgSelectedNodes', 'pkgSidebarOpen', 'pkgSidebarRenderDevices', 'pkgSidebarRender', 'pkgPkgToggle', 'pkgPkgSelectAll', 'pkgPkgSummary', 'pkgBatchRun', 'pkgOsScan', 'pkgOsImportManifest', 'pkgOsExportDownloader', 'pkgOsExportGo', 'pkgDownloaderReady', 'pkgOsScanPoll', 'pkgOsScanParse', 'pkgOsScanRender', 'pkgOsScanExport', 'pkgOsSidebarOpen', 'pkgOsRender', 'pkgOsTable', 'pkgOsKind', 'pkgOsAdminOpen', 'pkgIsOsView', 'pkgInstall', 'pkgRunOn', 'goPageStart', 'pkgMsg', 'pkgTabSetActive', 'pkgAdminOpen', 'pkgAdminRender', 'pkgCreateOpen', 'pkgCreateRender', 'pkgCreateCurOs', 'pkgCreateDefaultType', 'pkgCreateFieldSync', 'pkgCreateDraftSync', 'pkgCreateOsChange', 'pkgCreateOsHint', 'pkgCreateUpload', 'pkgCreateArtifactDel', 'pkgCreatePreset', 'pkgCreateInsert', 'pkgCreateSave', 'pkgCreateCheckId', 'pkgCreateCatalogArrived', 'pkgAdminAdd', 'pkgAdminEdit', 'pkgAdminForm', 'pkgAdminCurOs', 'pkgAdminFieldSync', 'pkgAdminDraftSync', 'pkgAdminOsChange', 'pkgAdminOsHint', 'pkgAdminSave', 'pkgAdminDelete', 'pkgAdminUpload', 'pkgAdminUploadDo', 'pkgAdminArtifactDel', 'pkgAdminStatus', 'pkgAdminRefresh', 'pkgAdminOsFilter', 'pkgBinBanner', 'pkgOsPluginOpen', 'pkgOsPluginRender', 'pkgUpdateOnline', 'pkgUpdateFile', 'pkgRestartNow', 'pkgAgentBuild', 'pkgAgentBuildRequest', 'pkgBinStatus', 'pkgBinStatusRequest', 'pkgBinRetry', 'pkgLogTail', 'pkgLogTailRequest', 'pkgUpdateUpload', 'pkgUpdateInfo', 'pkgUpdateApplied', 'pkgDenied', 'pkgD2WrapOnMessage', 'pkgD2Pending', 'pkgD2Receive', 'pkgD2PollSummary', 'pkgOsPlan', 'pkgOsPlanRender', 'pkgOsPlanSelChange', 'pkgOsPlanRequest', 'pkgOsPlanDownload', 'pkgOsPlanInstall', 'pkgOsPlanMachToggle', 'pkgOsPlanMachSelAll', 'pkgOsStoreRequest', 'pkgOsStoreList', 'pkgOsStoreSelChange', 'pkgOsStoreDel'];
+    obj.exports = ['onWebUIStartupEnd', 'pkgSidebarInject', 'pkgRequestList', 'pkgList', 'pkgCompose', 'pkgTableHtml', 'pkgTargetOs', 'pkgDevToggle', 'pkgDevSelectAll', 'pkgDevOsFilter', 'pkgDevListRender', 'pkgSelectedNodes', 'pkgSidebarOpen', 'pkgSidebarRenderDevices', 'pkgSidebarRender', 'pkgPkgToggle', 'pkgPkgSelectAll', 'pkgPkgSummary', 'pkgBatchRun', 'pkgOsScan', 'pkgOsImportManifest', 'pkgOsExportDownloader', 'pkgOsExportGo', 'pkgDownloaderReady', 'pkgOsScanPoll', 'pkgOsScanParse', 'pkgOsScanRender', 'pkgOsScanExport', 'pkgOsSidebarOpen', 'pkgOsRender', 'pkgOsMachinesRender', 'pkgOsPkgsRender', 'pkgOsPkgsToggle', 'pkgOsPkgsSelAll', 'pkgOsTable', 'pkgOsKind', 'pkgOsAdminOpen', 'pkgIsOsView', 'pkgInstall', 'pkgRunOn', 'goPageStart', 'pkgMsg', 'pkgTabSetActive', 'pkgAdminOpen', 'pkgAdminRender', 'pkgCreateOpen', 'pkgCreateRender', 'pkgCreateCurOs', 'pkgCreateDefaultType', 'pkgCreateFieldSync', 'pkgCreateDraftSync', 'pkgCreateOsChange', 'pkgCreateOsHint', 'pkgCreateUpload', 'pkgCreateArtifactDel', 'pkgCreatePreset', 'pkgCreateInsert', 'pkgCreateSave', 'pkgCreateCheckId', 'pkgCreateCatalogArrived', 'pkgAdminAdd', 'pkgAdminEdit', 'pkgAdminForm', 'pkgAdminCurOs', 'pkgAdminFieldSync', 'pkgAdminDraftSync', 'pkgAdminOsChange', 'pkgAdminOsHint', 'pkgAdminSave', 'pkgAdminDelete', 'pkgAdminUpload', 'pkgAdminUploadDo', 'pkgAdminArtifactDel', 'pkgAdminStatus', 'pkgAdminRefresh', 'pkgAdminOsFilter', 'pkgBinBanner', 'pkgOsPluginOpen', 'pkgOsPluginRender', 'pkgUpdateOnline', 'pkgUpdateFile', 'pkgRestartNow', 'pkgAgentBuild', 'pkgAgentBuildRequest', 'pkgBinStatus', 'pkgBinStatusRequest', 'pkgBinRetry', 'pkgLogTail', 'pkgLogTailRequest', 'pkgUpdateUpload', 'pkgUpdateInfo', 'pkgUpdateApplied', 'pkgDenied', 'pkgD2WrapOnMessage', 'pkgD2Pending', 'pkgD2Receive', 'pkgD2PollSummary', 'pkgOsPlan', 'pkgOsPlanRender', 'pkgOsPlanSelChange', 'pkgOsPlanRequest', 'pkgOsPlanDownload', 'pkgOsPlanInstall', 'pkgOsPlanMachToggle', 'pkgOsPlanMachSelAll', 'pkgOsStoreRequest', 'pkgOsStoreList', 'pkgOsStoreSelChange', 'pkgOsStoreDel'];
 
     obj.onWebUIStartupEnd = function () {
         try {
