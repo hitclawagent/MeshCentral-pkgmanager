@@ -1,6 +1,10 @@
 /**
  * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
  *
+ *     v2.2.3 SCAN-TABLE REMOVED: the per-machine "Scansione aggiornamenti
+ *     OS" table is gone; version OS, inventory count and status live in
+ *     the "Macchine scansionate" rows now (pkgOsScanRender forwards).
+ *
  *     v2.2.2 EXPORTS FIX: every client function a view calls MUST be in
  *     obj.exports or MeshCentral never serializes it to the browser
  *     (pkgOsMachinesRender, PkgsRender, PkgsToggle, PkgsSelAll were missing - empty
@@ -412,7 +416,7 @@ module.exports.pkgmanager = function (parent) {
     var childProcess = null; try { childProcess = require('child_process'); } catch (e) { }
     var vmMod = null; try { vmMod = require('vm'); } catch (e) { }
     var obj = {};
-    obj.version = '2.2.2';
+    obj.version = '2.2.3';
         globalThis.__pkgmanagerActiveVersion = obj.version; // v2.1.7: versione ATTIVA (il vecchio modulo in cache dopo un install resta a ZONA, il reloadplugin la aggiorna)
     obj.fs = parent.fs;
     obj.path = parent.path;
@@ -2320,7 +2324,6 @@ module.exports.pkgmanager = function (parent) {
             // e scarico di SOLO i selezionati.
             x += '<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start;margin-bottom:10px"><div style="flex:1;min-width:280px;border:1px solid #ddd;border-radius:6px;padding:8px"><b>Macchine scansionate</b><div id="pkgmanagerOsMachines" style="margin-top:6px;font-size:12px"></div></div><div style="flex:1.5;min-width:340px;border:1px solid #ddd;border-radius:6px;padding:8px"><b>Pacchetti rilevati</b> <span id="pkgmanagerOsPkgsSummary" style="color:#888;font-size:12px"></span><div id="pkgmanagerOsPkgs" style="margin-top:6px;font-size:12px;max-height:420px;overflow:auto"></div><div id="pkgmanagerOsPkgsActions" style="margin-top:6px"></div></div></div>';
             x += '<div id="pkgmanagerPlanWrap"></div>';
-            x += '<div id="pkgmanagerScanResults" style="margin-top:10px"></div>';
             x += '<div id="pkgmanagerMsg" style="margin-top:10px;color:#888"></div>';
             m.innerHTML = x;
             pluginHandler.pkgmanager.pkgOsPlanRender();
@@ -2344,9 +2347,12 @@ module.exports.pkgmanager = function (parent) {
                 var mm = run.machs[nid];
                 n++;
                 var info = (mm.info != null) ? mm.info : [];
-                var osLabel = ((mm.os == 'linux') ? ((info[0] || 'Linux') + ' ' + (info[1] || '') + ' (' + (info[2] || '?') + ')') : EscapeHtml(mm.os || '?'));
+                var osLabel = EscapeHtml(mm.os || '?');
+                if (mm.os == 'linux') { osLabel = ((info[0] || 'Linux') + ' ' + (info[1] || '') + ' (' + (info[2] || '?') + ')'); }
+                else if (((mm.os == 'windows') || (mm.os == 'macos')) && ((info != null) && (info.length > 1) && (info[1] != null) && (info[1] != ''))) { osLabel += ' ' + info[1]; } // v2.2.3: versione OS nella riga
                 var audit = ((mm.audit != null) && (mm.audit.length > 0)) ? ' <span style="color:#a60" title="' + EscapeHtml(mm.audit.join('; ')) + '">⚠ dpkg</span>' : '';
-                x += '<div style="padding:2px 0;border-bottom:1px solid #f2f2f2"><b>' + EscapeHtml(mm.name || nid) + '</b> <span style="color:#888">· ' + osLabel + '</span>' + audit + '<br><span style="color:#888;font-size:11px">' + ((mm.items != null) ? (mm.items.length + ' aggiornamenti rilevati') : 'inventario non pronto') + '</span></div>';
+                var stato = ((mm.got == true) ? '<span style="color:#080">inventario ✓</span>' : '<span style="color:#888">in attesa…</span>'); // v2.2.3: stato dalla tabella tolta
+                x += '<div style="padding:2px 0;border-bottom:1px solid #f2f2f2"><b>' + EscapeHtml(mm.name || nid) + '</b> <span style="color:#888">· ' + osLabel + '</span>' + audit + '<br><span style="color:#888;font-size:11px">' + (((mm.items != null) && (mm.got == true)) ? (mm.items.length + ' voci · ') : '') + stato + '</span></div>';
             }
             if (n == 0) { x = '<div style="color:#888">Nessuna macchina nella scansione.</div>'; }
             el.innerHTML = x;
@@ -2708,25 +2714,12 @@ module.exports.pkgmanager = function (parent) {
     };
 
     // Per-machine scan table (machine, OS, level, item count, stato).
+    // v2.2.3: la tabella "Scansione aggiornamenti OS" e' stata tolta: le
+    // stesse informazioni (versione OS, voci inventario, stato) stanno nelle
+    // righe del riquadro "Macchine scansionate". Il render esiste solo per
+    // non toccare i punti di poll/call esistenti.
     obj.pkgOsScanRender = function () {
-        try {
-            var el = document.getElementById('pkgmanagerScanResults');
-            if (el == null) return;
-            var run = window.pkgmanagerOsScan;
-            if (run == null) { el.innerHTML = ''; return; }
-            var x = '<div style="font-size:15px;margin-bottom:4px"><b>Scansione aggiornamenti OS</b> <span style="color:#888;font-size:12px">(inventario per macchina — base per il calcolo dei mancanti)</span></div>';
-            x += '<table style="border-collapse:collapse"><tr><td style="padding:4px;border-bottom:1px solid #ddd"><b>Macchina</b></td><td style="padding:4px;border-bottom:1px solid #ddd"><b>OS</b></td><td style="padding:4px;border-bottom:1px solid #ddd"><b>Versione</b></td><td style="padding:4px;border-bottom:1px solid #ddd"><b>Voci inventario</b></td><td style="padding:4px;border-bottom:1px solid #ddd"><b>Stato</b></td></tr>';
-            var any = false;
-            for (var nid in run.machs) {
-                var m = run.machs[nid];
-                any = true;
-                var ver = ((m.info != null) && (m.info.length > 1)) ? String(m.info[1]) : '—';
-                x += '<tr><td style="padding:4px">' + EscapeHtml(m.name) + '</td><td style="padding:4px">' + EscapeHtml(m.os) + '</td><td style="padding:4px">' + EscapeHtml(ver) + '</td><td style="padding:4px">' + m.items.length + '</td><td style="padding:4px">' + (m.got ? '<span style="color:#080">inventario ✓</span>' : '<span style="color:#888">in attesa…</span>') + '</td></tr>';
-            }
-            x += '</table>';
-            if (run.done) { x += '<div style="color:#888;font-size:12px;margin-top:4px">Scansione completata — «Scarica aggiornamenti» (server con internet) o «Esporta downloader…» (server airgap: downloader COMPILATO per-OS con inventario incorporato) creano il bundle; «Esporta report (.json)» resta fallback legacy per meshos-fetch.</div>'; }
-            el.innerHTML = (any ? x : '');
-        } catch (e) { console.log('pkgmanager os scan render failed: ' + e); }
+        try { pluginHandler.pkgmanager.pkgOsMachinesRender(); } catch (e) { console.log('pkgmanager os scan render failed: ' + e); }
     };
 
     // Download the scan report as JSON (the downloader's input file).

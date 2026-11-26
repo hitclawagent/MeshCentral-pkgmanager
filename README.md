@@ -2,8 +2,10 @@
 
 A [MeshCentral](https://github.com/Ylianst/MeshCentral) plugin for **remote package installation** on Windows, Linux and macOS agents. Catalog-driven, with **airgap installs** (devices never touch the internet: artifacts are downloaded from the MeshCentral server itself over the LAN).
 
-Current version: **2.2.2** — requires MeshCentral **1.3.1**
+Current version: **2.2.3** — requires MeshCentral **1.3.1**
 
+> **2.2.3**: the per-machine "Scansione aggiornamenti OS" table was removed — version OS, inventory count and status are shown in the "Macchine scansionate" rows.
+>
 > **2.2.2**: fix — the two-pane OS view rendered empty boxes: `pkgOsMachinesRender`/`pkgOsPkgsRender`/`pkgOsPkgsToggle`/`pkgOsPkgsSelAll` were missing from `obj.exports`, so MeshCentral never serialized them to the browser (the new view called them → undefined → swallowed error → empty panes, on any browser).
 >
 > **2.2.1**: OS updates two-pane view — left: scanned machines (OS/codename, missing count, dpkg ⚠), right: detected packages (unique per release, deduplicated across machines) with per-package checkboxes, select-all (missing only), already-in-store rows shown as ✓ and non-selectable, and a "Scarica selezionati" button under the list that downloads ONLY the checked packages (osfetch accepts a `packages` filter). The old "Scarica i mancanti sul server" top button is removed.
