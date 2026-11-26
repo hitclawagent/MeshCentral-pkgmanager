@@ -1,6 +1,11 @@
 /**
  * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
  *
+ *     v2.2.1 OS TWO-PANE VIEW: machines pane (left) vs detected packages
+ *     pane (right, unique per release + dedup across machines) with
+ *     checkboxes and "Scarica selezionati" (osfetch packages filter);
+ *     top "Scarica i mancanti sul server" removed.
+ *
  *     v2.2.0 DOWNLOAD TAB + PLUGIN LOG: dedicated "Download plugin" tab
  *     (version/update, plugin downloader binaries with retry + last error,
  *     core agentbuilds clearly separated, log tail). plog() replaces the
@@ -402,7 +407,7 @@ module.exports.pkgmanager = function (parent) {
     var childProcess = null; try { childProcess = require('child_process'); } catch (e) { }
     var vmMod = null; try { vmMod = require('vm'); } catch (e) { }
     var obj = {};
-    obj.version = '2.2.0';
+    obj.version = '2.2.1';
         globalThis.__pkgmanagerActiveVersion = obj.version; // v2.1.7: versione ATTIVA (il vecchio modulo in cache dopo un install resta a ZONA, il reloadplugin la aggiorna)
     obj.fs = parent.fs;
     obj.path = parent.path;
@@ -2304,14 +2309,109 @@ module.exports.pkgmanager = function (parent) {
             if (m == null) return;
             var osfAdm = ((typeof userinfo != 'undefined') && (userinfo != null) && (userinfo.siteadmin === 0xFFFFFFFF));
             var x = '<div style="margin-bottom:8px;font-size:16px"><b>Aggiornamenti del sistema operativo</b> <span style="color:#888;font-weight:normal;font-size:12px">(inventario per macchina — scaricamento su questo server, installazione airgap in LAN)</span></div>' + pluginHandler.pkgmanager.pkgBinBanner();
-            x += '<div style="margin-bottom:6px"><input type=button value="Scansiona macchine" onclick="pluginHandler.pkgmanager.pkgOsScan()"> ' + (osfAdm ? '<input type=button value="Scarica i mancanti sul server" onclick="pluginHandler.pkgmanager.pkgOsPlanDownload()"> ' : '') + '<input type=button value="Installa aggiornamenti" onclick="pluginHandler.pkgmanager.pkgOsPlanInstall()"> ' + (osfAdm ? '<input type=button value="Ricalcola piano" onclick="pluginHandler.pkgmanager.pkgOsPlanRequest()" title="Ricalcola il piano senza riscansionare le macchine"> ' : '') + (osfAdm ? '<input type=button value="Esporta downloader…" title="Genera il downloader COMPILATO per la piattaforma scelta con l inventario della scansione incorporato: eseguilo su una macchina con internet, copia os-updates/ nello store (My Files) e importa il manifest — LA via per i server airgap (py = script Python)" onclick="pluginHandler.pkgmanager.pkgOsExportDownloader()"> ' : '') + '<input type=button value="Esporta report (.json)" onclick="pluginHandler.pkgmanager.pkgOsScanExport()"> <span id="pkgmanagerPlanMsg" style="color:#888"></span></div>';
+            x += '<div style="margin-bottom:6px"><input type=button value="Scansiona macchine" onclick="pluginHandler.pkgmanager.pkgOsScan()"> ' + '<input type=button value="Installa aggiornamenti" onclick="pluginHandler.pkgmanager.pkgOsPlanInstall()"> ' + (osfAdm ? '<input type=button value="Ricalcola piano" onclick="pluginHandler.pkgmanager.pkgOsPlanRequest()" title="Ricalcola il piano senza riscansionare le macchine"> ' : '') + (osfAdm ? '<input type=button value="Esporta downloader…" title="Genera il downloader COMPILATO per la piattaforma scelta con l inventario della scansione incorporato: eseguilo su una macchina con internet, copia os-updates/ nello store (My Files) e importa il manifest — LA via per i server airgap (py = script Python)" onclick="pluginHandler.pkgmanager.pkgOsExportDownloader()"> ' : '') + '<input type=button value="Esporta report (.json)" onclick="pluginHandler.pkgmanager.pkgOsScanExport()"> <span id="pkgmanagerPlanMsg" style="color:#888"></span></div>';
+            // v2.2.1: DUE RIQUADRI — sinistra macchine scansionate, destra pacchetti
+            // rilevati (unici per release, deduplicati tra macchine) con selezione
+            // e scarico di SOLO i selezionati.
+            x += '<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start;margin-bottom:10px"><div style="flex:1;min-width:280px;border:1px solid #ddd;border-radius:6px;padding:8px"><b>Macchine scansionate</b><div id="pkgmanagerOsMachines" style="margin-top:6px;font-size:12px"></div></div><div style="flex:1.5;min-width:340px;border:1px solid #ddd;border-radius:6px;padding:8px"><b>Pacchetti rilevati</b> <span id="pkgmanagerOsPkgsSummary" style="color:#888;font-size:12px"></span><div id="pkgmanagerOsPkgs" style="margin-top:6px;font-size:12px;max-height:420px;overflow:auto"></div><div id="pkgmanagerOsPkgsActions" style="margin-top:6px"></div></div></div>';
             x += '<div id="pkgmanagerPlanWrap"></div>';
             x += '<div id="pkgmanagerScanResults" style="margin-top:10px"></div>';
             x += '<div id="pkgmanagerMsg" style="margin-top:10px;color:#888"></div>';
             m.innerHTML = x;
             pluginHandler.pkgmanager.pkgOsPlanRender();
             pluginHandler.pkgmanager.pkgOsScanRender();
+            pluginHandler.pkgmanager.pkgOsMachinesRender();
+            pluginHandler.pkgmanager.pkgOsPkgsRender();
         } catch (e) { console.log('pkgmanager os render failed: ' + e); }
+    };
+
+    // v2.2.1: RIQUADRO MACCHINE — elenco macchine della scansione con
+    // OS/codename, numero mancanti e stato dpkg.
+    obj.pkgOsMachinesRender = function () {
+        try {
+            var el = document.getElementById('pkgmanagerOsMachines');
+            if (el == null) return;
+            var run = window.pkgmanagerOsScan;
+            if ((run == null) || (run.machs == null)) { el.innerHTML = '<div style="color:#888">Premi «Scansiona macchine».</div>'; return; }
+            var x = '';
+            var n = 0;
+            for (var nid in run.machs) {
+                var mm = run.machs[nid];
+                n++;
+                var info = (mm.info != null) ? mm.info : [];
+                var osLabel = ((mm.os == 'linux') ? ((info[0] || 'Linux') + ' ' + (info[1] || '') + ' (' + (info[2] || '?') + ')') : EscapeHtml(mm.os || '?'));
+                var audit = ((mm.audit != null) && (mm.audit.length > 0)) ? ' <span style="color:#a60" title="' + EscapeHtml(mm.audit.join('; ')) + '">⚠ dpkg</span>' : '';
+                x += '<div style="padding:2px 0;border-bottom:1px solid #f2f2f2"><b>' + EscapeHtml(mm.name || nid) + '</b> <span style="color:#888">· ' + osLabel + '</span>' + audit + '<br><span style="color:#888;font-size:11px">' + ((mm.items != null) ? (mm.items.length + ' aggiornamenti rilevati') : 'inventario non pronto') + '</span></div>';
+            }
+            if (n == 0) { x = '<div style="color:#888">Nessuna macchina nella scansione.</div>'; }
+            el.innerHTML = x;
+        } catch (e) { }
+    };
+
+    // v2.2.1: RIQUADRO PACCHETTI — elenco univo dal piano (gia' deduplicato per
+    // codename: stesso pacchetto su piu' macchine = UNA riga), con selezione
+    // checkbox persistente in window.pkgmanagerOsSelPkg.
+    obj.pkgOsPkgsRender = function () {
+        try {
+            var el = document.getElementById('pkgmanagerOsPkgs');
+            if (el == null) return;
+            var plan = window.pkgmanagerOsPlan;
+            if ((plan == null) || (plan.groupKeys == null)) { el.innerHTML = '<div style="color:#888">Il piano si calcola al termine della scansione…</div>'; var s2 = document.getElementById('pkgmanagerOsPkgsSummary'); if (s2 != null) s2.innerText = ''; var a2 = document.getElementById('pkgmanagerOsPkgsActions'); if (a2 != null) a2.innerHTML = ''; return; }
+            if (window.pkgmanagerOsSelPkg == null) { window.pkgmanagerOsSelPkg = {}; }
+            var rows = [];
+            var keys = plan.groupKeys;
+            for (var gi = 0; gi < keys.length; gi++) {
+                var grp = plan.groups[keys[gi]];
+                if ((grp == null) || (grp.os != 'linux')) { continue; }
+                for (var ui = 0; ui < grp.updates.length; ui++) {
+                    var u = grp.updates[ui];
+                    rows.push({ key: grp.storeDirName + '/' + u.file, name: u.package, ver: u.version, code: grp.codename, nmach: Object.keys(u.targets || {}).length, size: (u.size || 0), inStore: (u.inStore === true) });
+                }
+            }
+            window.pkgmanagerOsPkgsRows = rows;
+            var sel = 0, totBytes = 0, selBytes = 0;
+            var x = '';
+            if (rows.length == 0) {
+                x = '<div style="color:#888">Nessun pacchetto mancante: tutte le macchine sono aggiornate.</div>';
+            } else {
+                x += '<div style="margin-bottom:4px"><input type=checkbox id="pkgmanagerOsPkgsAll" onchange="pluginHandler.pkgmanager.pkgOsPkgsSelAll(this.checked)"> <b>Seleziona tutte le mancanti</b></div>';
+                x += '<table style="width:100%;border-collapse:collapse">';
+                for (var ri = 0; ri < rows.length; ri++) {
+                    var r = rows[ri];
+                    var on = (window.pkgmanagerOsSelPkg[r.key] === true);
+                    if (on) { sel++; selBytes += r.size; }
+                    if (!r.inStore) { totBytes += r.size; }
+                    x += '<tr><td style="padding:1px 4px"><input type=checkbox data-pkey="' + EscapeHtml(r.key) + '" ' + (r.inStore ? 'disabled ' : '') + (on ? 'checked' : '') + ' onchange="pluginHandler.pkgmanager.pkgOsPkgsToggle(this)"></td>';
+                    x += '<td style="padding:1px 4px"><b>' + EscapeHtml(r.name) + '</b> ' + EscapeHtml(r.ver) + '</td>';
+                    x += '<td style="padding:1px 4px;color:#888">' + EscapeHtml(r.code) + '</td>';
+                    x += '<td style="padding:1px 4px;text-align:right;color:#888">' + r.nmach + ' macch.</td>';
+                    x += '<td style="padding:1px 4px;text-align:right;color:#888">' + (r.inStore ? '<span style="color:#080">✓ in store</span>' : Math.round(r.size / 1024) + ' KB') + '</td></tr>';
+                }
+                x += '</table>';
+            }
+            el.innerHTML = x;
+            var summ = document.getElementById('pkgmanagerOsPkgsSummary');
+            if (summ != null) { summ.innerText = rows.length + ' pacchetti — selezionati: ' + sel + ' (' + Math.round(selBytes / 1048576) + ' MiB)'; }
+            var act = document.getElementById('pkgmanagerOsPkgsActions');
+            if (act != null) { act.innerHTML = '<input type=button value="Scarica selezionati" onclick="pluginHandler.pkgmanager.pkgOsPlanDownload()" title="Scarica SOLO i pacchetti spuntati nello store del server (union versione massima per release)">'; }
+        } catch (e) { }
+    };
+
+    obj.pkgOsPkgsToggle = function (cb) {
+        try {
+            if (window.pkgmanagerOsSelPkg == null) { window.pkgmanagerOsSelPkg = {}; }
+            window.pkgmanagerOsSelPkg[cb.getAttribute('data-pkey')] = (cb.checked === true);
+            pluginHandler.pkgmanager.pkgOsPkgsRender();
+        } catch (e) { }
+    };
+
+    obj.pkgOsPkgsSelAll = function (on) {
+        try {
+            if (window.pkgmanagerOsSelPkg == null) { window.pkgmanagerOsSelPkg = {}; }
+            var rows = (window.pkgmanagerOsPkgsRows || []);
+            for (var i = 0; i < rows.length; i++) { if (!rows[i].inStore) { window.pkgmanagerOsSelPkg[rows[i].key] = (on === true); } }
+            pluginHandler.pkgmanager.pkgOsPkgsRender();
+        } catch (e) { }
     };
 
     // v2.0.8: richiesta piano (calcolo server, senza download).
@@ -2336,6 +2436,7 @@ module.exports.pkgmanager = function (parent) {
             window.pkgmanagerOsPlan = message.plan;
             if (message.opAck != null) { pluginHandler.pkgmanager.pkgMsg(message.opAck); }
             pluginHandler.pkgmanager.pkgOsPlanRender();
+            pluginHandler.pkgmanager.pkgOsPkgsRender(); // v2.2.1: riquadro pacchetti si aggiorna col piano
         } catch (e) { console.log('pkgmanager osplan recv failed: ' + e); }
     };
 
@@ -2443,8 +2544,12 @@ module.exports.pkgmanager = function (parent) {
                 var m = run.machs[nid];
                 machines.push({ id: nid, name: m.name, os: m.os, osInfo: { name: ((m.info != null) && (m.info.length > 0)) ? m.info[0] : '', version: ((m.info != null) && (m.info.length > 1)) ? m.info[1] : '', codename: ((m.info != null) && (m.info.length > 2)) ? m.info[2] : '' }, items: m.items.slice(0) });
             }
-            meshserver.send({ action: 'plugin', plugin: 'pkgmanager', pluginaction: 'osfetch', machines: machines });
-            pluginHandler.pkgmanager.pkgMsg('Download server-side avviato: solo i file mancanti nello store (union per release, versione massima) — il piano si aggiorna all esito.');
+            // v2.2.1: SOLO i pacchetti SELEZIONATI nel riquadro di destra
+            var fsel = [];
+            if (window.pkgmanagerOsSelPkg != null) { for (var sk in window.pkgmanagerOsSelPkg) { if (window.pkgmanagerOsSelPkg[sk] === true) { fsel.push(sk); } } }
+            if (fsel.length == 0) { pluginHandler.pkgmanager.pkgMsg('Seleziona almeno un pacchetto nel riquadro «Pacchetti rilevati», poi «Scarica selezionati».'); return; }
+            meshserver.send({ action: 'plugin', plugin: 'pkgmanager', pluginaction: 'osfetch', machines: machines, packages: fsel });
+            pluginHandler.pkgmanager.pkgMsg('Download server-side avviato: ' + fsel.length + ' pacchetti selezionati — il piano si aggiorna all esito.');
         } catch (e) { pluginHandler.pkgmanager.pkgMsg('Download fallito: ' + e); }
     };
 
@@ -2590,6 +2695,7 @@ module.exports.pkgmanager = function (parent) {
                 try { delete window.pkgmanagerD2[run.rid]; } catch (e2) { }
                 run.done = true;
                 pluginHandler.pkgmanager.pkgOsScanRender();
+                pluginHandler.pkgmanager.pkgOsMachinesRender(); // v2.2.1
                 pluginHandler.pkgmanager.pkgOsPlanRequest(); // v2.0.8: piano automatico a scansione finita
                 pluginHandler.pkgmanager.pkgMsg('Scansione completata: ' + got + '/' + total + ' macchine — «Scarica aggiornamenti» fa scaricare i pacchetti mancanti al server e crea il bundle da solo.');
             }
@@ -3901,6 +4007,9 @@ log('prossimo passo: copia ' + OUT_DIR + '/ nello store del server (My Files -> 
                 try {
                     var fget = async function (url) { var r = await fetch(url, { headers: { 'User-Agent': 'MeshCentral-pkgmanager/2.0' } }); if (!r.ok) { throw new Error('HTTP ' + r.status + ' ' + url); } return Buffer.from(await r.arrayBuffer()); };
                     var plan = await obj.osPlanCompute(fmachs, fget, fskipped);
+                    // v2.2.1: filtra per SELEZIONE del client (chiavi 'storeDir/file')
+                    var fsel = null;
+                    if (Array.isArray(command.packages)) { fsel = {}; for (var si = 0; si < command.packages.length; si++) { fsel[String(command.packages[si])] = 1; } }
                     var gkeys = plan.groupKeys; var dl = 0; var dlok = 0;
                     for (var gi = 0; gi < gkeys.length; gi++) {
                         var grp = plan.groups[gkeys[gi]];
@@ -3910,6 +4019,7 @@ log('prossimo passo: copia ' + OUT_DIR + '/ nello store del server (My Files -> 
                         for (var ui = 0; ui < grp.updates.length; ui++) {
                             var u = grp.updates[ui];
                             if (u.inStore === true) { continue; } // gia' presente: niente re-download
+                            if ((fsel != null) && (fsel[grp.storeDirName + '/' + u.file] == null)) { continue; } // v2.2.1: non selezionato
                             if (dl > 0 && (dl % 25) === 0) { obj.plog('osfetch ... ' + dl + ' download effettuati'); }
                             dl++;
                             var buf = null;
@@ -3922,7 +4032,7 @@ log('prossimo passo: copia ' + OUT_DIR + '/ nello store del server (My Files -> 
                         }
                     }
                     obj.plog('osfetch -> ' + dlok + ' scaricati, ' + fskipped.length + ' saltati');
-                    try { session.send({ action: 'plugin', plugin: 'pkgmanager', method: 'pkgOsPlan', plan: plan, opAck: 'Scaricati ' + dlok + ' nuovi file nello store; ' + fskipped.length + ' saltati (dettaglio qui sotto).' }); } catch (e) { }
+                    try { session.send({ action: 'plugin', plugin: 'pkgmanager', method: 'pkgOsPlan', plan: plan, opAck: 'Scaricati ' + dlok + ' nuovi file nello store; ' + fskipped.length + ' saltati (dettaglio qui sotto).' + ((fsel != null) ? ' Selezione: ' + Object.keys(fsel).length + ' pacchetti.' : '') }); } catch (e) { }
                 } catch (err) {
                     obj.plog('osfetch error: ' + err);
                     try { obj.replyCatalog(session, null, 'Download aggiornamenti fallito: ' + err + ' — se il server e airgap usa «Esporta downloader…» nella vista Aggiornamenti OS.'); } catch (e3) { }

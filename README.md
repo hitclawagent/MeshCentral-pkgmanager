@@ -2,8 +2,10 @@
 
 A [MeshCentral](https://github.com/Ylianst/MeshCentral) plugin for **remote package installation** on Windows, Linux and macOS agents. Catalog-driven, with **airgap installs** (devices never touch the internet: artifacts are downloaded from the MeshCentral server itself over the LAN).
 
-Current version: **2.2.0** — requires MeshCentral **1.3.1**
+Current version: **2.2.1** — requires MeshCentral **1.3.1**
 
+> **2.2.1**: OS updates two-pane view — left: scanned machines (OS/codename, missing count, dpkg ⚠), right: detected packages (unique per release, deduplicated across machines) with per-package checkboxes, select-all (missing only), already-in-store rows shown as ✓ and non-selectable, and a "Scarica selezionati" button under the list that downloads ONLY the checked packages (osfetch accepts a `packages` filter). The old "Scarica i mancanti sul server" top button is removed.
+>
 > **2.2.0**: dedicated "Download plugin" tab — (1) plugin version + online/file update + server restart, (2) "Binari del downloader" section with the plugin's own compiled-binary state (7 platforms, files, source URL, last error, "Ritenta installazione" that resets the attempt counter), (3) "Binari agente (core MeshCentral)" clearly separated from the plugin binaries, (4) "Log del plugin" — the plugin now keeps its own detailed log: ring buffer of 500 lines in memory + `pkgmanager.log` in datapath (rotated at 1 MB), every server-side action logged, tail visible from the UI. All plugin server `console.log` lines now flow through the logger.
 >
 > **2.1.12**: cache-buster on the self-update check — raw/Fastly POPs can be out of sync for minutes (the check answered "already updated" against a stale copy); each check now fetches a unique URL so the version is always read fresh.
