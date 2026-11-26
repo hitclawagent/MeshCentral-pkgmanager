@@ -1,6 +1,11 @@
 /**
  * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
  *
+ *     v2.1.10 HANDLER SIGNATURE FIX: server-sent plugin methods are invoked
+ *     by the UI as handler[method](server, message) (default.handlebars).
+ *     pkgAgentBuild took (message) and got the server object -> panel stuck
+ *     on the placeholder. Same convention as pkgUpdateInfo/pkgOsPlan/etc.
+ *
  *     v2.1.9 AGENT BINARY PANEL: serveraction "agentbuildinfo" (admin-only)
  *     surfaces parent.parent.agentDefaults.status() — the core tracks every
  *     default agent file with status/received/size — plus a disk scan of
@@ -380,7 +385,7 @@ module.exports.pkgmanager = function (parent) {
     var childProcess = null; try { childProcess = require('child_process'); } catch (e) { }
     var vmMod = null; try { vmMod = require('vm'); } catch (e) { }
     var obj = {};
-    obj.version = '2.1.9';
+    obj.version = '2.1.10';
         globalThis.__pkgmanagerActiveVersion = obj.version; // v2.1.7: versione ATTIVA (il vecchio modulo in cache dopo un install resta a ZONA, il reloadplugin la aggiorna)
     obj.fs = parent.fs;
     obj.path = parent.path;
@@ -1891,7 +1896,7 @@ module.exports.pkgmanager = function (parent) {
     obj.pkgAgentBuildRequest = function () {
         try { meshserver.send({ action: 'plugin', plugin: 'pkgmanager', pluginaction: 'agentbuildinfo' }); } catch (e) { }
     };
-    obj.pkgAgentBuild = function (message) {
+    obj.pkgAgentBuild = function (server, message) { // v2.1.10: firma UI (server, message) — senza server il messaggio arrivava come oggetto server e il pannello restava sul placeholder
         // v2.1.9: pannello "Binari agente" — stato agentDefaults del core con
         // barra di avanzamento per i file in download, stato disco e errori.
         try {

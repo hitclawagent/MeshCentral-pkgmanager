@@ -2,8 +2,10 @@
 
 A [MeshCentral](https://github.com/Ylianst/MeshCentral) plugin for **remote package installation** on Windows, Linux and macOS agents. Catalog-driven, with **airgap installs** (devices never touch the internet: artifacts are downloaded from the MeshCentral server itself over the LAN).
 
-Current version: **2.1.9** — requires MeshCentral **1.3.1**
+Current version: **2.1.10** — requires MeshCentral **1.3.1**
 
+> **2.1.10**: fix — `pkgAgentBuild` handler used the wrong signature (`(message)` instead of the UI convention `(server, message)`), so the "Binari agente" panel never populated after clicking Aggiorna.
+>
 > **2.1.9**: "Binari agente" section in the plugin tab — shows the core's `agentDefaults.status()` (agentbuilds.js): per-file state with a real progress bar while downloading (`received`/`size`), core errors, and the on-disk state (`agentbuilds/` verified cache, `agents/` overrides). Answers "are the agent binaries downloaded or still downloading?" — especially on LXC containers without egress, where files stay `Unavailable` and the panel shows why.
 >
 > **2.1.8**: "Riavvia server" button in the plugin admin view (admin-only server action via the launcher channel, clean restart in 2s) — handy for the one-time transition restart and as a test trigger.
