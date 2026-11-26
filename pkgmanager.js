@@ -1,6 +1,12 @@
 /**
  * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
  *
+ *     v2.2.4 HONEST EMPTY PLAN: with only windows/macos machines the
+ *     right pane said "tutte le macchine sono aggiornate" and still
+ *     showed the download button — wrong, the plan only covers Linux.
+ *     Empty plan now points to "Esporta downloader"; button hidden at
+ *     zero rows; machine rows say "voci inventario" not "mancanti".
+ *
  *     v2.2.3 SCAN-TABLE REMOVED: the per-machine "Scansione aggiornamenti
  *     OS" table is gone; version OS, inventory count and status live in
  *     the "Macchine scansionate" rows now (pkgOsScanRender forwards).
@@ -416,7 +422,7 @@ module.exports.pkgmanager = function (parent) {
     var childProcess = null; try { childProcess = require('child_process'); } catch (e) { }
     var vmMod = null; try { vmMod = require('vm'); } catch (e) { }
     var obj = {};
-    obj.version = '2.2.3';
+    obj.version = '2.2.4';
         globalThis.__pkgmanagerActiveVersion = obj.version; // v2.1.7: versione ATTIVA (il vecchio modulo in cache dopo un install resta a ZONA, il reloadplugin la aggiorna)
     obj.fs = parent.fs;
     obj.path = parent.path;
@@ -2351,8 +2357,8 @@ module.exports.pkgmanager = function (parent) {
                 if (mm.os == 'linux') { osLabel = ((info[0] || 'Linux') + ' ' + (info[1] || '') + ' (' + (info[2] || '?') + ')'); }
                 else if (((mm.os == 'windows') || (mm.os == 'macos')) && ((info != null) && (info.length > 1) && (info[1] != null) && (info[1] != ''))) { osLabel += ' ' + info[1]; } // v2.2.3: versione OS nella riga
                 var audit = ((mm.audit != null) && (mm.audit.length > 0)) ? ' <span style="color:#a60" title="' + EscapeHtml(mm.audit.join('; ')) + '">⚠ dpkg</span>' : '';
-                var stato = ((mm.got == true) ? '<span style="color:#080">inventario ✓</span>' : '<span style="color:#888">in attesa…</span>'); // v2.2.3: stato dalla tabella tolta
-                x += '<div style="padding:2px 0;border-bottom:1px solid #f2f2f2"><b>' + EscapeHtml(mm.name || nid) + '</b> <span style="color:#888">· ' + osLabel + '</span>' + audit + '<br><span style="color:#888;font-size:11px">' + (((mm.items != null) && (mm.got == true)) ? (mm.items.length + ' voci · ') : '') + stato + '</span></div>';
+                var stato = ((mm.got == true) ? '<span style="color:#080">inventario ✓</span>' : '<span style="color:#888">in attesa…</span>');
+                x += '<div style="padding:2px 0;border-bottom:1px solid #f2f2f2"><b>' + EscapeHtml(mm.name || nid) + '</b> <span style="color:#888">· ' + osLabel + '</span>' + audit + '<br><span style="color:#888;font-size:11px">' + (((mm.items != null) && (mm.got == true)) ? (mm.items.length + ' voci inventario · ') : '') + stato + '</span></div>';
             }
             if (n == 0) { x = '<div style="color:#888">Nessuna macchina nella scansione.</div>'; }
             el.innerHTML = x;
@@ -2383,7 +2389,16 @@ module.exports.pkgmanager = function (parent) {
             var sel = 0, totBytes = 0, selBytes = 0;
             var x = '';
             if (rows.length == 0) {
-                x = '<div style="color:#888">Nessun pacchetto mancante: tutte le macchine sono aggiornate.</div>';
+                // v2.2.4: "tutte aggiornate" era FALSO se ci sono macchine
+                // windows/macos — il piano non deduce i mancanti non-Linux.
+                var nonLinux = 0;
+                var runS = window.pkgmanagerOsScan;
+                if ((runS != null) && (runS.machs != null)) { for (var nidS in runS.machs) { var mmS = runS.machs[nidS]; if ((mmS.got == true) && (mmS.os != null) && (mmS.os != 'linux')) { nonLinux++; } } }
+                if (nonLinux > 0) {
+                    x = '<div style="color:#888">Nessun pacchetto Linux mancante. Per le ' + nonLinux + ' macchine Windows/macOS i mancanti non si deducono dal piano: usa «Esporta downloader…».</div>';
+                } else {
+                    x = '<div style="color:#888">Nessun pacchetto mancante: tutte le macchine sono aggiornate.</div>';
+                }
             } else {
                 x += '<div style="margin-bottom:4px"><input type=checkbox id="pkgmanagerOsPkgsAll" onchange="pluginHandler.pkgmanager.pkgOsPkgsSelAll(this.checked)"> <b>Seleziona tutte le mancanti</b></div>';
                 x += '<table style="width:100%;border-collapse:collapse">';
@@ -2404,7 +2419,7 @@ module.exports.pkgmanager = function (parent) {
             var summ = document.getElementById('pkgmanagerOsPkgsSummary');
             if (summ != null) { summ.innerText = rows.length + ' pacchetti — selezionati: ' + sel + ' (' + Math.round(selBytes / 1048576) + ' MiB)'; }
             var act = document.getElementById('pkgmanagerOsPkgsActions');
-            if (act != null) { act.innerHTML = '<input type=button value="Scarica selezionati" onclick="pluginHandler.pkgmanager.pkgOsPlanDownload()" title="Scarica SOLO i pacchetti spuntati nello store del server (union versione massima per release)">'; }
+            if (act != null) { act.innerHTML = ((rows.length > 0) ? '<input type=button value="Scarica selezionati" onclick="pluginHandler.pkgmanager.pkgOsPlanDownload()" title="Scarica SOLO i pacchetti spuntati nello store del server (union versione massima per release)">' : ''); } // v2.2.4: niente bottone a piano vuoto
         } catch (e) { }
     };
 
@@ -2481,7 +2496,11 @@ module.exports.pkgmanager = function (parent) {
             var w = document.getElementById('pkgmanagerPlanWrap');
             if (w == null) return;
             var plan = window.pkgmanagerOsPlan;
-            if ((plan == null) || (plan.groupKeys == null) || (plan.groupKeys.length == 0)) { w.innerHTML = '<div style="color:#888;padding:6px">Nessun piano: fai «Scansiona macchine» — il piano (pacchetti mancanti per release + stato sul server) viene calcolato al termine della scansione.</div>'; return; }
+            if ((plan == null) || (plan.groupKeys == null) || (plan.groupKeys.length == 0)) {
+                var nl = 0; var runP = window.pkgmanagerOsScan;
+                if ((runP != null) && (runP.machs != null)) { for (var nidP in runP.machs) { var mmP = runP.machs[nidP]; if ((mmP.got == true) && (mmP.os != null) && (mmP.os != 'linux')) { nl++; } } }
+                w.innerHTML = '<div style="color:#888;padding:6px">' + ((nl > 0) ? ('Nessun piano: solo macchine Windows/macOS (' + nl + ') — il piano copre solo Linux; per le altre usa «Esporta downloader…».') : ('Nessun piano: fai «Scansiona macchine» — il piano (pacchetti mancanti per release + stato sul server) viene calcolato al termine della scansione.')) + '</div>';
+                return; }
             var keys = plan.groupKeys;
             if ((window.pkgmanagerOsPlanSel == null) || (keys.indexOf(window.pkgmanagerOsPlanSel) < 0)) { window.pkgmanagerOsPlanSel = keys[0]; }
             var grp = plan.groups[window.pkgmanagerOsPlanSel];
