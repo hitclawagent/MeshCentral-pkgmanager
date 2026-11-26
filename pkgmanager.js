@@ -1,6 +1,12 @@
 /**
  * MeshCentral Package Manager plugin ("pkgmanager") — v2.0.3.
  *
+ *     v2.1.11 ENSURE-BINARIES FIX: the downloader-binary bootstrap used the
+ *     external `unzip` command (missing on minimal containers -> silent
+ *     permanent failure) and never retried extraction errors. Now:
+ *     yauzl-based extraction (core dependency resolved via server
+ *     parentpath), unified retries, last error surfaced to the UI banner.
+ *
  *     v2.1.10 HANDLER SIGNATURE FIX: server-sent plugin methods are invoked
  *     by the UI as handler[method](server, message) (default.handlebars).
  *     pkgAgentBuild took (message) and got the server object -> panel stuck
@@ -385,7 +391,7 @@ module.exports.pkgmanager = function (parent) {
     var childProcess = null; try { childProcess = require('child_process'); } catch (e) { }
     var vmMod = null; try { vmMod = require('vm'); } catch (e) { }
     var obj = {};
-    obj.version = '2.1.10';
+    obj.version = '2.1.11';
         globalThis.__pkgmanagerActiveVersion = obj.version; // v2.1.7: versione ATTIVA (il vecchio modulo in cache dopo un install resta a ZONA, il reloadplugin la aggiorna)
     obj.fs = parent.fs;
     obj.path = parent.path;
@@ -415,6 +421,47 @@ module.exports.pkgmanager = function (parent) {
         }
         return miss;
     };
+    obj.binariesLastError = null;
+    // v2.1.11: estrazione zip in puro Node con yauzl (gia' dipendenza core).
+    obj.extractZip = function (zipPath, outDir, func) {
+        var done = false;
+        var fin = function (e) { if (!done) { done = true; try { func(e); } catch (e2) { } } };
+        var loadYauzl = function () {
+            try { return require('yauzl'); } catch (e1) { }
+            // Il plugin vive in datapath (fuori da node_modules): risolvi yauzl
+            // dal parentpath del server (cwd del figlio di MeshCentral).
+            var roots = [];
+            try { roots.push(parent.parent.parentpath); } catch (e2) { }
+            try { roots.push(process.cwd()); } catch (e3) { }
+            for (var r in roots) {
+                try { return require(parent.path.join(roots[r], 'node_modules', 'yauzl')); } catch (e4) { }
+            }
+            return null;
+        };
+        try {
+            var yauzl = (parent.yauzl != null) ? parent.yauzl : loadYauzl();
+            if (yauzl == null) { throw new Error('yauzl non disponibile su questo server'); }
+            yauzl.open(zipPath, { lazyEntries: true, autoClose: true }, function (eZ, zipfile) {
+                if (eZ != null) { fin(eZ); return; }
+                try { parent.fs.rmSync(outDir, { recursive: true, force: true }); } catch (eR) { }
+                zipfile.readEntry();
+                zipfile.on('entry', function (entry) {
+                    if (/\/$/.test(entry.fileName)) { try { parent.fs.mkdirSync(parent.path.join(outDir, entry.fileName), { recursive: true }); } catch (eD) { fin(eD); return; } zipfile.readEntry(); return; }
+                    zipfile.openReadStream(entry, function (eR2, rs) {
+                        if (eR2 != null) { fin(eR2); return; }
+                        var out = parent.path.join(outDir, entry.fileName);
+                        try { parent.fs.mkdirSync(parent.path.dirname(out), { recursive: true }); } catch (eD2) { fin(eD2); return; }
+                        var w = parent.fs.createWriteStream(out);
+                        w.on('error', function (eW) { fin(eW); });
+                        rs.on('end', function () { zipfile.readEntry(); });
+                        rs.pipe(w);
+                    });
+                });
+                zipfile.on('error', function (eY) { fin(eY); });
+                zipfile.on('end', function () { fin(null); });
+            });
+        } catch (e) { fin(e); }
+    };
     obj.ensureBinariesBusy = false;
     obj.ensureBinariesAttempts = 0;
     obj.ensureBinaries = function () {
@@ -434,11 +481,13 @@ module.exports.pkgmanager = function (parent) {
                 var buf = Buffer.from(ab);
                 parent.fs.writeFileSync(tmpZip, buf);
                 console.log('pkgmanager[server]: ensureBinaries -> scaricato ' + Math.round(buf.length / 1048576) + 'MB, estrazione...');
-                if (childProcess == null) { throw new Error('child_process non disponibile'); }
                 var tmpDir = parent.path.join(parent.path.dirname(obj.catalogPath), '.binaries-extract');
-                childProcess.exec('rm -rf "' + tmpDir + '" && mkdir -p "' + tmpDir + '" && unzip -o "' + tmpZip + '" -d "' + tmpDir + '"', function (eU) {
-                    if (eU != null) { obj.ensureBinariesBusy = false; console.log('pkgmanager[server]: ensureBinaries errore unzip: ' + eU); return; }
+                // v2.1.11: estrazione con yauzl (dipendenza di MeshCentral) —
+                // niente comando esterno 'unzip', assente nei container minimi
+                // (LXC): era la causa del fallimento silenzioso.
+                obj.extractZip(tmpZip, tmpDir, function (eU) {
                     try {
+                        if (eU != null) { throw new Error('estrazione: ' + eU); }
                         var srcBin = parent.path.join(tmpDir, 'pkgmanager', 'bin');
                         parent.fs.mkdirSync(obj.binDir, { recursive: true });
                         var names = parent.fs.readdirSync(srcBin);
@@ -451,14 +500,142 @@ module.exports.pkgmanager = function (parent) {
                         }
                         try { parent.fs.unlinkSync(tmpZip); } catch (e8) { }
                         try { parent.fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (e9) { }
-                        obj.ensureBinariesBusy = false;
+                        obj.binariesLastError = null;
+    // v2.1.11: estrazione zip in puro Node con yauzl (gia' dipendenza core).
+    obj.extractZip = function (zipPath, outDir, func) {
+        var done = false;
+        var fin = function (e) { if (!done) { done = true; try { func(e); } catch (e2) { } } };
+        var loadYauzl = function () {
+            try { return require('yauzl'); } catch (e1) { }
+            // Il plugin vive in datapath (fuori da node_modules): risolvi yauzl
+            // dal parentpath del server (cwd del figlio di MeshCentral).
+            var roots = [];
+            try { roots.push(parent.parent.parentpath); } catch (e2) { }
+            try { roots.push(process.cwd()); } catch (e3) { }
+            for (var r in roots) {
+                try { return require(parent.path.join(roots[r], 'node_modules', 'yauzl')); } catch (e4) { }
+            }
+            return null;
+        };
+        try {
+            var yauzl = (parent.yauzl != null) ? parent.yauzl : loadYauzl();
+            if (yauzl == null) { throw new Error('yauzl non disponibile su questo server'); }
+            yauzl.open(zipPath, { lazyEntries: true, autoClose: true }, function (eZ, zipfile) {
+                if (eZ != null) { fin(eZ); return; }
+                try { parent.fs.rmSync(outDir, { recursive: true, force: true }); } catch (eR) { }
+                zipfile.readEntry();
+                zipfile.on('entry', function (entry) {
+                    if (/\/$/.test(entry.fileName)) { try { parent.fs.mkdirSync(parent.path.join(outDir, entry.fileName), { recursive: true }); } catch (eD) { fin(eD); return; } zipfile.readEntry(); return; }
+                    zipfile.openReadStream(entry, function (eR2, rs) {
+                        if (eR2 != null) { fin(eR2); return; }
+                        var out = parent.path.join(outDir, entry.fileName);
+                        try { parent.fs.mkdirSync(parent.path.dirname(out), { recursive: true }); } catch (eD2) { fin(eD2); return; }
+                        var w = parent.fs.createWriteStream(out);
+                        w.on('error', function (eW) { fin(eW); });
+                        rs.on('end', function () { zipfile.readEntry(); });
+                        rs.pipe(w);
+                    });
+                });
+                zipfile.on('error', function (eY) { fin(eY); });
+                zipfile.on('end', function () { fin(null); });
+            });
+        } catch (e) { fin(e); }
+    };
+    obj.ensureBinariesBusy = false; obj.binariesLastError = null;
                         var left = obj.binariesMissing();
                         console.log('pkgmanager[server]: ensureBinaries -> estratti ' + names.length + ' binari; mancanti ora: ' + left.length + ((left.length > 0) ? (' (' + left.join(', ') + ')') : ''));
                         if (left.length > 0) { setTimeout(function () { try { obj.ensureBinaries(); } catch (e10) { } }, 60000); }
-                    } catch (e11) { obj.ensureBinariesBusy = false; console.log('pkgmanager[server]: ensureBinaries errore installazione: ' + e11); }
+                    } catch (e11) {
+                        obj.binariesLastError = null;
+    // v2.1.11: estrazione zip in puro Node con yauzl (gia' dipendenza core).
+    obj.extractZip = function (zipPath, outDir, func) {
+        var done = false;
+        var fin = function (e) { if (!done) { done = true; try { func(e); } catch (e2) { } } };
+        var loadYauzl = function () {
+            try { return require('yauzl'); } catch (e1) { }
+            // Il plugin vive in datapath (fuori da node_modules): risolvi yauzl
+            // dal parentpath del server (cwd del figlio di MeshCentral).
+            var roots = [];
+            try { roots.push(parent.parent.parentpath); } catch (e2) { }
+            try { roots.push(process.cwd()); } catch (e3) { }
+            for (var r in roots) {
+                try { return require(parent.path.join(roots[r], 'node_modules', 'yauzl')); } catch (e4) { }
+            }
+            return null;
+        };
+        try {
+            var yauzl = (parent.yauzl != null) ? parent.yauzl : loadYauzl();
+            if (yauzl == null) { throw new Error('yauzl non disponibile su questo server'); }
+            yauzl.open(zipPath, { lazyEntries: true, autoClose: true }, function (eZ, zipfile) {
+                if (eZ != null) { fin(eZ); return; }
+                try { parent.fs.rmSync(outDir, { recursive: true, force: true }); } catch (eR) { }
+                zipfile.readEntry();
+                zipfile.on('entry', function (entry) {
+                    if (/\/$/.test(entry.fileName)) { try { parent.fs.mkdirSync(parent.path.join(outDir, entry.fileName), { recursive: true }); } catch (eD) { fin(eD); return; } zipfile.readEntry(); return; }
+                    zipfile.openReadStream(entry, function (eR2, rs) {
+                        if (eR2 != null) { fin(eR2); return; }
+                        var out = parent.path.join(outDir, entry.fileName);
+                        try { parent.fs.mkdirSync(parent.path.dirname(out), { recursive: true }); } catch (eD2) { fin(eD2); return; }
+                        var w = parent.fs.createWriteStream(out);
+                        w.on('error', function (eW) { fin(eW); });
+                        rs.on('end', function () { zipfile.readEntry(); });
+                        rs.pipe(w);
+                    });
+                });
+                zipfile.on('error', function (eY) { fin(eY); });
+                zipfile.on('end', function () { fin(null); });
+            });
+        } catch (e) { fin(e); }
+    };
+    obj.ensureBinariesBusy = false; obj.binariesLastError = String(e11);
+                        console.log('pkgmanager[server]: ensureBinaries errore installazione: ' + e11);
+                        // v2.1.11: riprova anche per errori di estrazione (prima: nessun retry)
+                        setTimeout(function () { try { obj.ensureBinaries(); } catch (e12) { } }, 60000);
+                    }
                 });
             }).catch(function (err) {
-                obj.ensureBinariesBusy = false;
+                obj.binariesLastError = null;
+    // v2.1.11: estrazione zip in puro Node con yauzl (gia' dipendenza core).
+    obj.extractZip = function (zipPath, outDir, func) {
+        var done = false;
+        var fin = function (e) { if (!done) { done = true; try { func(e); } catch (e2) { } } };
+        var loadYauzl = function () {
+            try { return require('yauzl'); } catch (e1) { }
+            // Il plugin vive in datapath (fuori da node_modules): risolvi yauzl
+            // dal parentpath del server (cwd del figlio di MeshCentral).
+            var roots = [];
+            try { roots.push(parent.parent.parentpath); } catch (e2) { }
+            try { roots.push(process.cwd()); } catch (e3) { }
+            for (var r in roots) {
+                try { return require(parent.path.join(roots[r], 'node_modules', 'yauzl')); } catch (e4) { }
+            }
+            return null;
+        };
+        try {
+            var yauzl = (parent.yauzl != null) ? parent.yauzl : loadYauzl();
+            if (yauzl == null) { throw new Error('yauzl non disponibile su questo server'); }
+            yauzl.open(zipPath, { lazyEntries: true, autoClose: true }, function (eZ, zipfile) {
+                if (eZ != null) { fin(eZ); return; }
+                try { parent.fs.rmSync(outDir, { recursive: true, force: true }); } catch (eR) { }
+                zipfile.readEntry();
+                zipfile.on('entry', function (entry) {
+                    if (/\/$/.test(entry.fileName)) { try { parent.fs.mkdirSync(parent.path.join(outDir, entry.fileName), { recursive: true }); } catch (eD) { fin(eD); return; } zipfile.readEntry(); return; }
+                    zipfile.openReadStream(entry, function (eR2, rs) {
+                        if (eR2 != null) { fin(eR2); return; }
+                        var out = parent.path.join(outDir, entry.fileName);
+                        try { parent.fs.mkdirSync(parent.path.dirname(out), { recursive: true }); } catch (eD2) { fin(eD2); return; }
+                        var w = parent.fs.createWriteStream(out);
+                        w.on('error', function (eW) { fin(eW); });
+                        rs.on('end', function () { zipfile.readEntry(); });
+                        rs.pipe(w);
+                    });
+                });
+                zipfile.on('error', function (eY) { fin(eY); });
+                zipfile.on('end', function () { fin(null); });
+            });
+        } catch (e) { fin(e); }
+    };
+    obj.ensureBinariesBusy = false; obj.binariesLastError = String(err);
                 console.log('pkgmanager[server]: ensureBinaries fallito (' + err + ') — riprovo tra 15 minuti.');
                 setTimeout(function () { try { obj.ensureBinaries(); } catch (e12) { } }, 15 * 60 * 1000);
             });
@@ -1654,7 +1831,8 @@ module.exports.pkgmanager = function (parent) {
             } else {
                 txt = '⚠️ Binari del downloader compilato non disponibili (' + miss + ' piattaforme mancanti su 7 — server senza internet?): «Esporta downloader» supporta solo «py». Per attivarli: copia la cartella bin/ a mano o configura settings.plugins.pkgmanagerBinariesUrl e riavvia MeshCentral.';
             }
-            return '<div style="margin:0 0 10px 0;padding:8px 10px;border:1px solid #d5a012;background:#fff7e0;border-radius:6px;color:#7a5b00;font-size:13px">' + txt + '</div>';
+            var errT = ((window.pkgmanagerBinError != null) ? (' <span style="color:#900">Ultimo errore: ' + EscapeHtml(window.pkgmanagerBinError) + '</span>') : '');
+            return '<div style="margin:0 0 10px 0;padding:8px 10px;border:1px solid #d5a012;background:#fff7e0;border-radius:6px;color:#7a5b00;font-size:13px">' + txt + errT + '</div>';
         } catch (e) { return ''; }
     };
 
@@ -1846,6 +2024,7 @@ module.exports.pkgmanager = function (parent) {
             window.pkgmanagerBinMissing = message.binMissing;
             window.pkgmanagerBinBusy = message.binBusy;
             window.pkgmanagerBinAttempts = message.binAttempts;
+            window.pkgmanagerBinError = (message.binError || null);
             if (message.pluginVersion != null) { window.pkgmanagerPluginVersion = message.pluginVersion; }
             if (message.opAck != null) { window.pkgmanagerAdminMsg = message.opAck; }
             if (message.error != null) { window.pkgmanagerAdminMsg = message.error; pluginHandler.pkgmanager.pkgMsg(message.error); } // v1.8.0: gli errori del server (es. osfetch su server airgap) ora sono VISIBILI
@@ -3122,7 +3301,7 @@ module.exports.pkgmanager = function (parent) {
             // pluginHandler[message.plugin][message.method](server, message):
             // plugin and method must be at the TOP level, not nested in event.
             var send = function () {
-                try { session.send({ action: 'plugin', plugin: 'pkgmanager', method: 'pkgList', catalog: cat, token: obj.dlToken, opAck: opAck, error: (err2 ? String(err2) : (err || null)), binMissing: ((obj.binariesMissing != null) ? obj.binariesMissing().length : -1), binBusy: (obj.ensureBinariesBusy === true), binAttempts: (obj.ensureBinariesAttempts || 0), pluginVersion: obj.version }); } catch (e) { console.log('pkgmanager: reply failed: ' + e); }
+                try { session.send({ action: 'plugin', plugin: 'pkgmanager', method: 'pkgList', catalog: cat, token: obj.dlToken, opAck: opAck, error: (err2 ? String(err2) : (err || null)), binMissing: ((obj.binariesMissing != null) ? obj.binariesMissing().length : -1), binBusy: (obj.ensureBinariesBusy === true), binAttempts: (obj.ensureBinariesAttempts || 0), binError: (obj.binariesLastError || null), pluginVersion: obj.version }); } catch (e) { console.log('pkgmanager: reply failed: ' + e); }
             };
             if ((cat == null) || (cat.packages == null)) { send(); return; }
             var oses = ['linux', 'windows', 'macos'];
